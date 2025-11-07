@@ -1,0 +1,122 @@
+﻿using CardApplicationAPI.Data.DBContext;
+using CardApplicationAPI.Data.Entities;
+using CardApplicationAPI.Models;
+using CardApplicationAPI.Repositories.Interfaces;
+using Microsoft.EntityFrameworkCore;
+namespace CardApplicationAPI.Repositories.Implementations
+{
+    public class UserRepository : IUserRepository
+    {
+        private readonly AppDbContext _context;
+
+        public UserRepository(AppDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<Users>> GetAllAsync()
+        {
+            var entities = await _context.Users.ToListAsync();
+            return entities.Select(MapToModel);
+        }
+
+        public async Task<Users?> GetByIdAsync(int id)
+        {
+            var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+            return entity != null ? MapToModel(entity) : null;
+        }
+
+        public async Task<Users> CreateAsync(Users model)
+        {
+            var entity = MapToEntity(model);
+            // entity.CreatedAt = DateTime.UtcNow;
+            //  entity.UpdatedAt = DateTime.UtcNow;
+
+            _context.Users.Add(entity);
+            await _context.SaveChangesAsync();
+
+            return MapToModel(entity);
+        }
+
+        public async Task<Users> UpdateAsync(Users model)
+        {
+            var existing = await _context.Users.FirstOrDefaultAsync(u => u.Id == model.Id);
+            if (existing == null)
+                throw new InvalidOperationException($"Users with ID {model.Id} not found");
+
+            existing.Username = model.Username;
+            existing.Password = model.Password;
+            existing.PhoneNumber = model.PhoneNumber;
+            existing.FullName = model.FullName;
+            existing.NickName = model.NickName;
+            existing.AdditionalInfo = model.AdditionalInfo;
+            existing.Role = model.Role;
+            //   existing.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return MapToModel(existing);
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+            if (entity == null) return false;
+
+            _context.Users.Remove(entity);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ExistsAsync(int id)
+        {
+            return await _context.Users.AnyAsync(u => u.Id == id);
+        }
+
+        public async Task<bool> IsUsersnameTakenAsync(string Usersname)
+        {
+            return await _context.Users.AnyAsync(u => u.Username.ToLower() == Usersname.ToLower());
+        }
+
+        public async Task<Users?> GetByUsersnameAsync(string Usersname)
+        {
+            var entity = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == Usersname.ToLower());
+            return entity != null ? MapToModel(entity) : null;
+        }
+
+        // ✅ Mapper methods (like your PortalUsers example)
+        private static Users MapToModel(UserEntity entity)
+        {
+            return new Users
+            {
+                Id = entity.Id,
+                Username = entity.Username,
+                Password = entity.Password,
+                PhoneNumber = entity.PhoneNumber,
+                FullName = entity.FullName,
+                NickName = entity.NickName,
+                AdditionalInfo = entity.AdditionalInfo,
+                Role = entity.Role,
+                //CreatedAt = entity.CreatedAt,
+                // UpdatedAt = entity.UpdatedAt
+            };
+        }
+
+        private static UserEntity MapToEntity(Users model)
+        {
+            return new UserEntity
+            {
+                Id = model.Id,
+                Username = model.Username,
+                Password = model.Password,
+                PhoneNumber = model.PhoneNumber,
+                FullName = model.FullName,
+                NickName = model.NickName,
+                AdditionalInfo = model.AdditionalInfo,
+                Role = model.Role,
+                //  CreatedAt = model.CreatedAt,
+                //  UpdatedAt = model.UpdatedAt
+            };
+
+        }
+    }
+}

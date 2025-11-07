@@ -1,4 +1,11 @@
 
+using CardApplicationAPI.Data.DBContext;
+using CardApplicationAPI.Repositories.Implementations;
+using CardApplicationAPI.Repositories.Interfaces;
+using CardApplicationAPI.Services.Implementations;
+using CardApplicationAPI.Services.Interfaces;
+using CardApplicationAPI.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 namespace CardApplicationAPI
 {
     public class Program
@@ -14,6 +21,25 @@ namespace CardApplicationAPI
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+
+            // dependecy injection
+            builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IUserService, UserService>();
+
+            builder.Services.AddDbContext<AppDbContext>(options =>
+           options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("all", builder =>
+                {
+                    builder.AllowAnyOrigin()
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+                });
+            });
+
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -24,6 +50,7 @@ namespace CardApplicationAPI
             }
 
             app.UseHttpsRedirection();
+            app.UseCors("all");
 
             app.UseAuthorization();
 

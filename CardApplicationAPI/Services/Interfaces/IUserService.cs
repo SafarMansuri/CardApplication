@@ -1,15 +1,16 @@
 ﻿using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 
 namespace CardApplicationAPI.Services.Interfaces
 {
     public interface IUserService
     {
-        Task<IEnumerable<Users>> GetAllAsync();
-        Task<Users?> GetByIdAsync(int id);
-     //   Task<Users?> GetByUsersnameAsync(string Usersname);
-        Task<Users> AddAsync(Users Users);
-        Task UpdateAsync(Users Users);
-        Task DeleteAsync(int id);
-       // Task<IEnumerable<Users>> GetByRoleAsync(string role);
+        Task<InternalActionResult<IEnumerable<Users>>> GetAllAsync();
+        Task<InternalActionResult<Users?>> GetByIdAsync(int id);
+        // Task<InternalActionResult<Users?>> GetByUsernameAsync(string username);
+        Task<InternalActionResult<Users>> AddAsync(Users user);
+        Task<InternalActionResult<bool>> UpdateAsync(Users user);
+        Task<InternalActionResult<bool>> DeleteAsync(int id);
+        // Task<InternalActionResult<IEnumerable<Users>>> GetByRoleAsync(string role);
     }
 }

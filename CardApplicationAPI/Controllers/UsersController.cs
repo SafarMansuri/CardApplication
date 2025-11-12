@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using CardApplicationAPI.Models;
+﻿using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 namespace CardApplicationAPI.Controllers
 {
     [Route("api/[controller]")]
@@ -14,52 +15,48 @@ namespace CardApplicationAPI.Controllers
             _service = service;
         }
 
+        // ✅ GET: api/users
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _service.GetAllAsync());
+        public async Task<ActionResult<InternalActionResult<IEnumerable<Users>>>> GetAll()
+        {
+            var result = await _service.GetAllAsync();
+            return result; // InternalActionResult already includes status/message
+        }
 
+        // ✅ GET: api/users/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<ActionResult<InternalActionResult<Users?>>> GetById(int id)
         {
-            var user = await _service.GetByIdAsync(id);
-            if (user == null) return NotFound();
-            return Ok(user);
+            var result = await _service.GetByIdAsync(id);
+
+            return result;
         }
 
-        //[HttpGet("role/{role}")]
-        //public async Task<IActionResult> GetByRole(string role)
-        //{
-        //    var users = await _service.GetByRoleAsync(role);
-        //    return Ok(users);
-        //}
-
-        //[HttpGet("username/{username}")]
-        //public async Task<IActionResult> GetByUsername(string username)
-        //{
-        //    var user = await _service.GetByUsersnameAsync(username);
-        //    if (user == null) return NotFound();
-        //    return Ok(user);
-        //}
-
+        // ✅ POST: api/users
         [HttpPost]
-        public async Task<IActionResult> Create(Users user)
+        public async Task<ActionResult<InternalActionResult<Users>>> Create([FromBody] Users user)
         {
-            var created = await _service.AddAsync(user);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            var result = await _service.AddAsync(user);
+            return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
         }
 
+        // ✅ PUT: api/users/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, Users user)
+        public async Task<ActionResult<InternalActionResult<bool>>> Update(int id, [FromBody] Users user)
         {
-            if (id != user.Id) return BadRequest();
-            await _service.UpdateAsync(user);
-            return NoContent();
+            if (id != user.Id)
+                return BadRequest(FactoryResponse<bool>.CreateFail("User ID mismatch."));
+
+            var result = await _service.UpdateAsync(user);
+            return result;
         }
 
+        // ✅ DELETE: api/users/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<ActionResult<InternalActionResult<bool>>> Delete(int id)
         {
-            await _service.DeleteAsync(id);
-            return NoContent();
+            var result = await _service.DeleteAsync(id);
+            return result;
         }
     }
 }

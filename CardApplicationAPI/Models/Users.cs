@@ -19,6 +19,10 @@ namespace CardApplicationAPI.Models
         [Required]
         public string Role { get; set; } = "User";
 
+        public DateTime Createdat { get; set; } = DateTime.UtcNow;
+
+        public DateTime Updatedat { get; set; } = DateTime.UtcNow;
+
 
     }
 }

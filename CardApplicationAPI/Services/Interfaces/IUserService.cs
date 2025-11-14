@@ -7,10 +7,8 @@ namespace CardApplicationAPI.Services.Interfaces
     {
         Task<InternalActionResult<IEnumerable<Users>>> GetAllAsync();
         Task<InternalActionResult<Users?>> GetByIdAsync(int id);
-        // Task<InternalActionResult<Users?>> GetByUsernameAsync(string username);
         Task<InternalActionResult<Users>> AddAsync(Users user);
         Task<InternalActionResult<bool>> UpdateAsync(Users user);
         Task<InternalActionResult<bool>> DeleteAsync(int id);
-        // Task<InternalActionResult<IEnumerable<Users>>> GetByRoleAsync(string role);
     }
 }

@@ -23,5 +23,9 @@ namespace CardApplicationAPI.Data.Entities
         // Role: Master, Admin, or User
         [Required]
         public string Role { get; set; } = "User";
+
+        public DateTime Createdat { get; set; } = DateTime.UtcNow;
+
+        public DateTime Updatedat { get; set; } = DateTime.UtcNow;
     }
 }

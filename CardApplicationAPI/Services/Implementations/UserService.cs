@@ -45,20 +45,5 @@ namespace CardApplicationAPI.Services.Implementations
             await _repository.DeleteAsync(id);
             return FactoryResponse<bool>.CreateSuccess(true, "User deleted successfully.");
         }
-
-        // Optional extras if you enable them later:
-        // public async Task<InternalActionResult<Users?>> GetByUsernameAsync(string username)
-        // {
-        //     var user = await _repository.GetByUsernameAsync(username);
-        //     return user != null
-        //         ? FactoryResponse<Users?>.CreateSuccess(user, "User retrieved successfully.")
-        //         : FactoryResponse<Users?>.CreateFailure("User not found.");
-        // }
-
-        // public async Task<InternalActionResult<IEnumerable<Users>>> GetByRoleAsync(string role)
-        // {
-        //     var users = await _repository.GetByRoleAsync(role);
-        //     return FactoryResponse<IEnumerable<Users>>.CreateSuccess(users, "Users retrieved successfully.");
-        // }
     }
 }

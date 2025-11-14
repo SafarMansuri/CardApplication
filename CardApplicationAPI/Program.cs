@@ -6,6 +6,7 @@ using CardApplicationAPI.Services.Implementations;
 using CardApplicationAPI.Services.Interfaces;
 using CardApplicationAPI.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using CardApplicationAPI.Middleware;
 namespace CardApplicationAPI
 {
     public class Program
@@ -25,6 +26,8 @@ namespace CardApplicationAPI
             // dependecy injection
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<ICardInfoRepository, CardInfoRepository>();
+            builder.Services.AddScoped<ICardInfoService, CardInfoService>();
 
             builder.Services.AddDbContext<AppDbContext>(options =>
            options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -53,6 +56,8 @@ namespace CardApplicationAPI
             app.UseCors("all");
 
             app.UseAuthorization();
+
+            app.UseGlobalExceptionHandler();
 
 
             app.MapControllers();

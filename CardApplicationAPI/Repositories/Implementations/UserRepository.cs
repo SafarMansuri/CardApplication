@@ -29,8 +29,8 @@ namespace CardApplicationAPI.Repositories.Implementations
         public async Task<Users> CreateAsync(Users model)
         {
             var entity = MapToEntity(model);
-            // entity.CreatedAt = DateTime.UtcNow;
-            //  entity.UpdatedAt = DateTime.UtcNow;
+            entity.Createdat = DateTime.UtcNow;
+            entity.Updatedat = DateTime.UtcNow;
 
             _context.Users.Add(entity);
             await _context.SaveChangesAsync();
@@ -51,7 +51,7 @@ namespace CardApplicationAPI.Repositories.Implementations
             existing.NickName = model.NickName;
             existing.AdditionalInfo = model.AdditionalInfo;
             existing.Role = model.Role;
-            //   existing.UpdatedAt = DateTime.UtcNow;
+             existing.Updatedat = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return MapToModel(existing);
@@ -83,7 +83,6 @@ namespace CardApplicationAPI.Repositories.Implementations
             return entity != null ? MapToModel(entity) : null;
         }
 
-        // ✅ Mapper methods (like your PortalUsers example)
         private static Users MapToModel(UserEntity entity)
         {
             return new Users
@@ -96,8 +95,8 @@ namespace CardApplicationAPI.Repositories.Implementations
                 NickName = entity.NickName,
                 AdditionalInfo = entity.AdditionalInfo,
                 Role = entity.Role,
-                //CreatedAt = entity.CreatedAt,
-                // UpdatedAt = entity.UpdatedAt
+                Createdat = entity.Createdat,
+                Updatedat = entity.Updatedat
             };
         }
 
@@ -113,8 +112,8 @@ namespace CardApplicationAPI.Repositories.Implementations
                 NickName = model.NickName,
                 AdditionalInfo = model.AdditionalInfo,
                 Role = model.Role,
-                //  CreatedAt = model.CreatedAt,
-                //  UpdatedAt = model.UpdatedAt
+                Createdat = model.Createdat,
+                Updatedat = model.Updatedat
             };
 
         }

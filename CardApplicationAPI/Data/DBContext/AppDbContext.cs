@@ -1,4 +1,5 @@
 ﻿using CardApplicationAPI.Data.Entities;
+using CardApplicationAPI.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace CardApplicationAPI.Data.DBContext
@@ -12,7 +13,15 @@ namespace CardApplicationAPI.Data.DBContext
 
         // Register all your entities here
         public DbSet<UserEntity> Users { get; set; }
-        // Add DbSet<Product> if you have one
-        // public DbSet<Product> Products { get; set; }
+
+        public DbSet<CardInfoEntity> CardInfo { get; set; }
+        public DbSet<PaymentInfoEntity> PaymentInfo { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            
+        }
     }
 }

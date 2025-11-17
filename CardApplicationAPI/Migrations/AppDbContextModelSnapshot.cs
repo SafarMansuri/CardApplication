@@ -33,6 +33,11 @@ namespace CardApplicationAPI.Migrations
                     b.Property<string>("AdditionalInfo")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("CardName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

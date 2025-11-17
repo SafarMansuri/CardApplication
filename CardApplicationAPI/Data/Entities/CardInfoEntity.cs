@@ -30,8 +30,12 @@ namespace CardApplicationAPI.Data.Entities
             [Required]
             public bool limitUsed { get; set; }
             public string? AdditionalInfo { get; set; }
-            
-            public DateTime Createdat { get; set; } = DateTime.UtcNow;
+            [Required, MaxLength(50)]
+
+        public string? BankName { get; set; }
+
+
+        public DateTime Createdat { get; set; } = DateTime.UtcNow;
 
             public DateTime Updatedat { get; set; } = DateTime.UtcNow;
 

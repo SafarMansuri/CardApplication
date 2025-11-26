@@ -44,8 +44,6 @@ namespace CardApplicationAPI.Repositories.Implementations
             if (existing == null)
                 throw new InvalidOperationException($"CardInfo with ID {model.Id} not found");
 
-
-
             existing.CardName = model.CardName;
             existing.CardNumber = model.CardNumber;
             existing.PartyName = model.PartyName;
@@ -55,6 +53,7 @@ namespace CardApplicationAPI.Repositories.Implementations
             existing.POS = model.POS;
             existing.Remarks = model.Remarks;
             existing.limitUsed = model.limitUsed;
+            existing.BankName = model.BankName;
             existing.Updatedat = model.Updatedat;
 
             await _context.SaveChangesAsync();
@@ -91,6 +90,7 @@ namespace CardApplicationAPI.Repositories.Implementations
                 POS = entity.POS,
                 Remarks = entity.Remarks,
                 limitUsed = entity.limitUsed,
+                BankName = entity.BankName,
                 Createdat = entity.Createdat,
                 Updatedat = entity.Updatedat
             };
@@ -110,6 +110,7 @@ namespace CardApplicationAPI.Repositories.Implementations
                 POS = model.POS,
                 Remarks = model.Remarks,
                 limitUsed = model.limitUsed,
+                BankName = model.BankName,
                 Createdat = model.Createdat,
                 Updatedat = model.Updatedat
             };

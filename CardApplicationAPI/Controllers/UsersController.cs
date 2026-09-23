@@ -1,13 +1,17 @@
 ﻿using CardApplicationAPI.Models;
 using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 namespace CardApplicationAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin,Master")]
     public class UsersController : ControllerBase
     {
+        private static readonly string[] AllowedRoles = { "Master", "Admin", "User" };
+
         private readonly IUserService _service;
 
         public UsersController(IUserService service)
@@ -36,6 +40,9 @@ namespace CardApplicationAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<InternalActionResult<Users>>> Create([FromBody] Users user)
         {
+            if (!AllowedRoles.Contains(user.Role))
+                return BadRequest(FactoryResponse<Users>.CreateFail("Invalid role. Allowed roles: Master, Admin, User."));
+
             var result = await _service.AddAsync(user);
             return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
         }
@@ -46,6 +53,9 @@ namespace CardApplicationAPI.Controllers
         {
             if (id != user.Id)
                 return BadRequest(FactoryResponse<bool>.CreateFail("User ID mismatch."));
+
+            if (!AllowedRoles.Contains(user.Role))
+                return BadRequest(FactoryResponse<bool>.CreateFail("Invalid role. Allowed roles: Master, Admin, User."));
 
             var result = await _service.UpdateAsync(user);
             return result;

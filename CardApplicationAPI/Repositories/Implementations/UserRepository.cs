@@ -1,5 +1,6 @@
 ﻿using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
+using CardApplicationAPI.Helpers;
 using CardApplicationAPI.Models;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -8,10 +9,24 @@ namespace CardApplicationAPI.Repositories.Implementations
     public class UserRepository : IUserRepository
     {
         private readonly AppDbContext _context;
+        private readonly PasswordHasherHelper _passwordHasher;
 
-        public UserRepository(AppDbContext context)
+        public UserRepository(AppDbContext context, PasswordHasherHelper passwordHasher)
         {
             _context = context;
+            _passwordHasher = passwordHasher;
+        }
+
+        private string HashIfPlain(string password)
+        {
+            if (string.IsNullOrEmpty(password))
+                return password;
+
+            // ASP.NET Identity V3 hashes start with "AQAAAA". Avoid re-hashing an existing hash.
+            if (password.StartsWith("AQAAAA"))
+                return password;
+
+            return _passwordHasher.HashPassword(password);
         }
 
         public async Task<IEnumerable<Users>> GetAllAsync()
@@ -29,6 +44,7 @@ namespace CardApplicationAPI.Repositories.Implementations
         public async Task<Users> CreateAsync(Users model)
         {
             var entity = MapToEntity(model);
+            entity.Password = HashIfPlain(model.Password);
             entity.Createdat = DateTime.UtcNow;
             entity.Updatedat = DateTime.UtcNow;
 
@@ -45,13 +61,13 @@ namespace CardApplicationAPI.Repositories.Implementations
                 throw new InvalidOperationException($"Users with ID {model.Id} not found");
 
             existing.Username = model.Username;
-            existing.Password = model.Password;
+            existing.Password = HashIfPlain(model.Password);
             existing.PhoneNumber = model.PhoneNumber;
             existing.FullName = model.FullName;
             existing.NickName = model.NickName;
             existing.AdditionalInfo = model.AdditionalInfo;
             existing.Role = model.Role;
-             existing.Updatedat = DateTime.UtcNow;
+            existing.Updatedat = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return MapToModel(existing);
@@ -72,14 +88,14 @@ namespace CardApplicationAPI.Repositories.Implementations
             return await _context.Users.AnyAsync(u => u.Id == id);
         }
 
-        public async Task<bool> IsUsersnameTakenAsync(string Usersname)
+        public async Task<bool> IsUsernameTakenAsync(string username)
         {
-            return await _context.Users.AnyAsync(u => u.Username.ToLower() == Usersname.ToLower());
+            return await _context.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower());
         }
 
-        public async Task<Users?> GetByUsersnameAsync(string Usersname)
+        public async Task<Users?> GetByUsernameAsync(string username)
         {
-            var entity = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == Usersname.ToLower());
+            var entity = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
             return entity != null ? MapToModel(entity) : null;
         }
 

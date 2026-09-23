@@ -1,0 +1,16 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "Jwt": {
+    "Key": "6a1bc929746cbe6ffa08fb9bad966dff89ab4400a85486fd81807aca46e08759",
+    "Issuer": "CardApplicationAPI",
+    "Audience": "CardApplicationClient",
+    "AccessExpiryMinutes": 60,
+    "RefreshExpiryDays": 7
+  }
+}

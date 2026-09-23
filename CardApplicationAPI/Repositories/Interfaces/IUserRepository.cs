@@ -12,7 +12,7 @@ namespace CardApplicationAPI.Repositories.Interfaces
         Task<bool> DeleteAsync(int id);
         // 🔹 Utility Methods
         Task<bool> ExistsAsync(int id);
-    //    Task<bool> IsUsernameTakenAsync(string username);
-      //  Task<Users?> GetByUsernameAsync(string username);
+        Task<bool> IsUsernameTakenAsync(string username);
+        Task<Users?> GetByUsernameAsync(string username);
     }
 }

@@ -37,3 +37,4 @@ msbuild.wrn
 
 # Visual Studio 2015
 .vs/
+/CardApplicationAPI/global.json

@@ -1,12 +1,14 @@
 ﻿using CardApplicationAPI.Models;
 using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CardApplicationAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CardInfoController : ControllerBase
     {
         private readonly ICardInfoService _service;

@@ -13,6 +13,7 @@ namespace CardApplicationAPI.Data.DBContext
 
         // Register all your entities here
         public DbSet<UserEntity> Users { get; set; }
+        public DbSet<RefreshTokenEntity> RefreshTokens { get; set; }
 
         public DbSet<CardInfoEntity> CardInfo { get; set; }
         public DbSet<PaymentInfoEntity> PaymentInfo { get; set; }

@@ -17,12 +17,25 @@ namespace CardApplicationAPI.Data.DBContext
 
         public DbSet<CardInfoEntity> CardInfo { get; set; }
         public DbSet<PaymentInfoEntity> PaymentInfo { get; set; }
+        public DbSet<StockItemEntity> StockItems { get; set; }
+        public DbSet<StockPaymentInfoEntity> StockPaymentInfo { get; set; }
+        public DbSet<CashLedgerEntity> CashLedger { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            
+            modelBuilder.Entity<StockPaymentInfoEntity>()
+                .HasOne(x => x.StockItem)
+                .WithMany(x => x.PaymentInfo)
+                .HasForeignKey(x => x.StockItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CashLedgerEntity>()
+                .HasCheckConstraint("CK_CashLedger_TransactionType", "[TransactionType] IN ('OPENING', 'IN', 'OUT')");
+
+            modelBuilder.Entity<CashLedgerEntity>()
+                .HasCheckConstraint("CK_CashLedger_Amount", "[Amount] > 0");
         }
     }
 }

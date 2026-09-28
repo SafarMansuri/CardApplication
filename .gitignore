@@ -39,3 +39,5 @@ msbuild.wrn
 .vs/
 /CardApplicationAPI/global.json
 /CardApplicationAPI/Properties/PublishProfiles/AugroupFEBE - Zip Deploy.pubxml
+/CardApplicationAPI/DatabaseScripts/AddPartyPaymentSummaries.sql
+/CardApplicationAPI/Properties/PublishProfiles/site41983-WebDeploy.pubxml

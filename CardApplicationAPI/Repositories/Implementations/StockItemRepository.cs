@@ -1,6 +1,7 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,13 +16,13 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<StockItem>> GetAllAsync()
+        public async Task<PaginatedResult<StockItem>> GetAllAsync(PaginationParams pagination)
         {
-            var entities = await _context.StockItems
+            var result = await _context.StockItems
                 .Include(x => x.PaymentInfo)
-                .ToListAsync();
-
-            return entities.Select(MapToModel);
+                .OrderByDescending(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockItem> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         public async Task<StockItem?> GetByIdAsync(int id)
@@ -86,31 +87,25 @@ namespace CardApplicationAPI.Repositories.Implementations
             return await _context.StockItems.AnyAsync(x => x.Id == id);
         }
 
-        public async Task<IEnumerable<StockItem>> GetByPartyNameAsync(string partyName)
+        public async Task<PaginatedResult<StockItem>> GetByPartyNameAsync(string partyName, PaginationParams pagination)
         {
-            var entities = await _context.StockItems
-                .Where(x => x.PartyName != null && x.PartyName.ToLower() == partyName.ToLower())
-                .ToListAsync();
-
-            return entities.Select(MapToModel);
+            var result = await _context.StockItems.Where(x => x.PartyName != null && x.PartyName.ToLower() == partyName.ToLower())
+                .OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockItem> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
-        public async Task<IEnumerable<StockItem>> GetByStatusAsync(string status)
+        public async Task<PaginatedResult<StockItem>> GetByStatusAsync(string status, PaginationParams pagination)
         {
-            var entities = await _context.StockItems
-                .Where(x => x.Status != null && x.Status.ToLower() == status.ToLower())
-                .ToListAsync();
-
-            return entities.Select(MapToModel);
+            var result = await _context.StockItems.Where(x => x.Status != null && x.Status.ToLower() == status.ToLower())
+                .OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockItem> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
-        public async Task<IEnumerable<StockItem>> GetByInOutAsync(string inOut)
+        public async Task<PaginatedResult<StockItem>> GetByInOutAsync(string inOut, PaginationParams pagination)
         {
-            var entities = await _context.StockItems
-                .Where(x => x.InOut != null && x.InOut.ToLower() == inOut.ToLower())
-                .ToListAsync();
-
-            return entities.Select(MapToModel);
+            var result = await _context.StockItems.Where(x => x.InOut != null && x.InOut.ToLower() == inOut.ToLower())
+                .OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockItem> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         private static StockItem MapToModel(StockItemEntity entity)

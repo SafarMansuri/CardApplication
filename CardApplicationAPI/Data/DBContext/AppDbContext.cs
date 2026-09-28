@@ -31,6 +31,14 @@ namespace CardApplicationAPI.Data.DBContext
                 .HasForeignKey(x => x.StockItemId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<PaymentInfoEntity>()
+                .HasIndex(x => x.PartyName)
+                .IsUnique();
+
+            modelBuilder.Entity<UserEntity>()
+                .HasIndex(x => x.Username)
+                .IsUnique();
+
             modelBuilder.Entity<CashLedgerEntity>()
                 .HasCheckConstraint("CK_CashLedger_TransactionType", "[TransactionType] IN ('OPENING', 'IN', 'OUT')");
 

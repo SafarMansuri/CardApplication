@@ -12,18 +12,31 @@ namespace CardApplicationAPI.Data.Entities
             [Key]
             public int Id { get; set; }
 
-            [Required]
+            [Required, MaxLength(100)]
             public string CardName { get; set; } = string.Empty;
 
-            [Required]
+            [Required, MaxLength(100)]
             public string CardNumber { get; set; } = string.Empty;
-        [Required, MaxLength(150)]
 
-        public string? PartyName { get; set; }
+            [MaxLength(100)]
+            public string? IMEI { get; set; }
+        [Required, MaxLength(150)]
+        public string PartyName { get; set; } = string.Empty;
         [Column(TypeName = "decimal(18,2)")]
         public decimal? Deduction { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? Profit { get; set; }
         public DateTime? Date { get; set; }
             public string? POS { get; set; }
+
+        [MaxLength(200)]
+        public string? Model { get; set; }
+
+        [MaxLength(150)]
+        public string? SwipePerson { get; set; }
+
+        [MaxLength(200)]
+        public string? Merchant { get; set; }
 
             public string? Remarks { get; set; }
 

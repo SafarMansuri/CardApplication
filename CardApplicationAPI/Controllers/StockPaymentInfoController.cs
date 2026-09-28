@@ -19,9 +19,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<StockPaymentInfo>>>> GetAll()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockPaymentInfo>>>> GetAll([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetAllAsync();
+            var result = await _service.GetAllAsync(pagination);
             return result;
         }
 
@@ -33,9 +33,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet("stock/{stockItemId}")]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<StockPaymentInfo>>>> GetByStockItemId(int stockItemId)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockPaymentInfo>>>> GetByStockItemId(int stockItemId, [FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetByStockItemIdAsync(stockItemId);
+            var result = await _service.GetByStockItemIdAsync(stockItemId, pagination);
             return result;
         }
 

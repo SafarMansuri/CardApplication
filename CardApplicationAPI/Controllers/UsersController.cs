@@ -21,10 +21,10 @@ namespace CardApplicationAPI.Controllers
 
         // ✅ GET: api/users
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<Users>>>> GetAll()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<Users>>>> GetAll([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetAllAsync();
-            return result; // InternalActionResult already includes status/message
+            var result = await _service.GetAllAsync(pagination);
+            return StatusCode((int)result.StatusCode, result);
         }
 
         // ✅ GET: api/users/{id}
@@ -33,17 +33,16 @@ namespace CardApplicationAPI.Controllers
         {
             var result = await _service.GetByIdAsync(id);
 
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         // ✅ POST: api/users
         [HttpPost]
         public async Task<ActionResult<InternalActionResult<Users>>> Create([FromBody] Users user)
         {
-            if (!AllowedRoles.Contains(user.Role))
-                return BadRequest(FactoryResponse<Users>.CreateFail("Invalid role. Allowed roles: Master, Admin, User."));
-
             var result = await _service.AddAsync(user);
+            if (result.StatusCode != ApplicationActionStatusCodes.Success)
+                return StatusCode((int)result.StatusCode, result);
             return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
         }
 
@@ -54,11 +53,8 @@ namespace CardApplicationAPI.Controllers
             if (id != user.Id)
                 return BadRequest(FactoryResponse<bool>.CreateFail("User ID mismatch."));
 
-            if (!AllowedRoles.Contains(user.Role))
-                return BadRequest(FactoryResponse<bool>.CreateFail("Invalid role. Allowed roles: Master, Admin, User."));
-
             var result = await _service.UpdateAsync(user);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         // ✅ DELETE: api/users/{id}
@@ -66,7 +62,7 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<bool>>> Delete(int id)
         {
             var result = await _service.DeleteAsync(id);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
     }
 }

@@ -1,6 +1,7 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,13 +16,13 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<StockPaymentInfo>> GetAllAsync()
+        public async Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination)
         {
-            var entities = await _context.StockPaymentInfo
+            var result = await _context.StockPaymentInfo
                 .Include(x => x.StockItem)
-                .ToListAsync();
-
-            return entities.Select(MapToModel);
+                .OrderByDescending(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockPaymentInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         public async Task<StockPaymentInfo?> GetByIdAsync(int id)
@@ -33,13 +34,11 @@ namespace CardApplicationAPI.Repositories.Implementations
             return entity == null ? null : MapToModel(entity);
         }
 
-        public async Task<IEnumerable<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId)
+        public async Task<PaginatedResult<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination)
         {
-            var entities = await _context.StockPaymentInfo
-                .Where(x => x.StockItemId == stockItemId)
-                .ToListAsync();
-
-            return entities.Select(MapToModel);
+            var result = await _context.StockPaymentInfo.Where(x => x.StockItemId == stockItemId)
+                .OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockPaymentInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         public async Task<StockPaymentInfo> CreateAsync(StockPaymentInfo model)

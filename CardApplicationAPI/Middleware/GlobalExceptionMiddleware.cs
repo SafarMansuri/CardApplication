@@ -43,8 +43,10 @@ namespace CardApplicationAPI.Middleware
             {
                 StatusCode = statusCode,
                 StopProccess = true,
-                StatusText = ex.GetType().Name,
-                StatusMessage = ex.Message,
+                StatusText = statusCode == ApplicationActionStatusCodes.Error ? "InternalServerError" : ex.GetType().Name,
+                StatusMessage = statusCode == ApplicationActionStatusCodes.Error
+                    ? "An unexpected error occurred."
+                    : ex.Message,
                 ResultObject = null
             };
 

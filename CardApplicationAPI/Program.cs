@@ -60,6 +60,8 @@ namespace CardApplicationAPI
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<ICardInfoRepository, CardInfoRepository>();
             builder.Services.AddScoped<ICardInfoService, CardInfoService>();
+            builder.Services.AddScoped<IPaymentInfoRepository, PaymentInfoRepository>();
+            builder.Services.AddScoped<IPaymentInfoService, PaymentInfoService>();
             builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();

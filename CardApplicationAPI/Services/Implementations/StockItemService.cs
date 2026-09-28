@@ -14,10 +14,10 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<IEnumerable<StockItem>>> GetAllAsync()
+        public async Task<InternalActionResult<PaginatedResult<StockItem>>> GetAllAsync(PaginationParams pagination)
         {
-            var result = await _repository.GetAllAsync();
-            return FactoryResponse<IEnumerable<StockItem>>.CreateSuccess(result, "Stock items retrieved successfully.");
+            var result = await _repository.GetAllAsync(pagination);
+            return FactoryResponse<PaginatedResult<StockItem>>.CreateSuccess(result, "Stock items retrieved successfully.");
         }
 
         public async Task<InternalActionResult<StockItem?>> GetByIdAsync(int id)
@@ -56,31 +56,31 @@ namespace CardApplicationAPI.Services.Implementations
             return FactoryResponse<bool>.CreateSuccess(true, "Stock item deleted successfully.");
         }
 
-        public async Task<InternalActionResult<IEnumerable<StockItem>>> GetByPartyNameAsync(string partyName)
+        public async Task<InternalActionResult<PaginatedResult<StockItem>>> GetByPartyNameAsync(string partyName, PaginationParams pagination)
         {
             if (string.IsNullOrWhiteSpace(partyName))
-                return FactoryResponse<IEnumerable<StockItem>>.CreateFail("Party name is required.");
+                return FactoryResponse<PaginatedResult<StockItem>>.CreateFail("Party name is required.", ApplicationActionStatusCodes.ValidationFailed);
 
-            var result = await _repository.GetByPartyNameAsync(partyName);
-            return FactoryResponse<IEnumerable<StockItem>>.CreateSuccess(result, "Stock items retrieved by party name.");
+            var result = await _repository.GetByPartyNameAsync(partyName, pagination);
+            return FactoryResponse<PaginatedResult<StockItem>>.CreateSuccess(result, "Stock items retrieved by party name.");
         }
 
-        public async Task<InternalActionResult<IEnumerable<StockItem>>> GetByStatusAsync(string status)
+        public async Task<InternalActionResult<PaginatedResult<StockItem>>> GetByStatusAsync(string status, PaginationParams pagination)
         {
             if (string.IsNullOrWhiteSpace(status))
-                return FactoryResponse<IEnumerable<StockItem>>.CreateFail("Status is required.");
+                return FactoryResponse<PaginatedResult<StockItem>>.CreateFail("Status is required.", ApplicationActionStatusCodes.ValidationFailed);
 
-            var result = await _repository.GetByStatusAsync(status);
-            return FactoryResponse<IEnumerable<StockItem>>.CreateSuccess(result, "Stock items retrieved by status.");
+            var result = await _repository.GetByStatusAsync(status, pagination);
+            return FactoryResponse<PaginatedResult<StockItem>>.CreateSuccess(result, "Stock items retrieved by status.");
         }
 
-        public async Task<InternalActionResult<IEnumerable<StockItem>>> GetByInOutAsync(string inOut)
+        public async Task<InternalActionResult<PaginatedResult<StockItem>>> GetByInOutAsync(string inOut, PaginationParams pagination)
         {
             if (string.IsNullOrWhiteSpace(inOut))
-                return FactoryResponse<IEnumerable<StockItem>>.CreateFail("In/Out value is required.");
+                return FactoryResponse<PaginatedResult<StockItem>>.CreateFail("In/Out value is required.", ApplicationActionStatusCodes.ValidationFailed);
 
-            var result = await _repository.GetByInOutAsync(inOut);
-            return FactoryResponse<IEnumerable<StockItem>>.CreateSuccess(result, "Stock items retrieved by In/Out filter.");
+            var result = await _repository.GetByInOutAsync(inOut, pagination);
+            return FactoryResponse<PaginatedResult<StockItem>>.CreateSuccess(result, "Stock items retrieved by In/Out filter.");
         }
     }
 }

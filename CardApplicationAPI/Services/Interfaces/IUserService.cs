@@ -5,7 +5,7 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface IUserService
     {
-        Task<InternalActionResult<IEnumerable<Users>>> GetAllAsync();
+        Task<InternalActionResult<PaginatedResult<Users>>> GetAllAsync(PaginationParams pagination);
         Task<InternalActionResult<Users?>> GetByIdAsync(int id);
         Task<InternalActionResult<Users>> AddAsync(Users user);
         Task<InternalActionResult<bool>> UpdateAsync(Users user);

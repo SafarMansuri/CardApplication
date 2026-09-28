@@ -8,7 +8,8 @@
         ValidationFailed = 400,
         Unauthorized = 401,
         BadRequest = 400,
-        Forbidden = 403
+        Forbidden = 403,
+        Conflict = 409
     }
 
     public class ApplicationActionResult<T>
@@ -23,19 +24,48 @@
     {
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
-        public string SearchTerm { get; set; } = string.Empty;
-        public string SortBy { get; set; } = "Name";
-        public bool IsDescending { get; set; } = false;
         public int Skip => (PageNumber - 1) * PageSize;
-
-        // ✅ New optional filters
-        public Guid? AppId { get; set; }      // To filter unassigned reports
-        public bool MetadataOnly { get; set; } // To return trimmed metadata onl
     }
     public class PaginatedResult<T>
     {
-        public IEnumerable<T> Items { get; set; }
-        public PaginationDetail Pagination { get; set; }
+        public IEnumerable<T> Items { get; set; } = Array.Empty<T>();
+        public PaginationDetail Pagination { get; set; } = new();
+    }
+
+    public static class PaginationExtensions
+    {
+        public const int MaxPageSize = 100;
+
+        public static async Task<PaginatedResult<T>> ToPaginatedResultAsync<T>(
+            this IQueryable<T> query,
+            PaginationParams pagination,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(pagination);
+            if (pagination.PageNumber < 1)
+                throw new ArgumentException("Page number must be at least 1.", nameof(pagination));
+            if (pagination.PageSize < 1 || pagination.PageSize > MaxPageSize)
+                throw new ArgumentException($"Page size must be between 1 and {MaxPageSize}.", nameof(pagination));
+
+            var totalCount = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.CountAsync(query, cancellationToken);
+            var items = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                query.Skip(pagination.Skip).Take(pagination.PageSize), cancellationToken);
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pagination.PageSize);
+
+            return new PaginatedResult<T>
+            {
+                Items = items,
+                Pagination = new PaginationDetail
+                {
+                    TotalCount = totalCount,
+                    PageSize = pagination.PageSize,
+                    CurrentPage = pagination.PageNumber,
+                    TotalPages = totalPages,
+                    HasNext = pagination.PageNumber < totalPages,
+                    HasPrevious = pagination.PageNumber > 1
+                }
+            };
+        }
     }
 
     public class PaginationDetail

@@ -14,10 +14,10 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<IEnumerable<StockPaymentInfo>>> GetAllAsync()
+        public async Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetAllAsync(PaginationParams pagination)
         {
-            var result = await _repository.GetAllAsync();
-            return FactoryResponse<IEnumerable<StockPaymentInfo>>.CreateSuccess(result, "Stock payment records retrieved successfully.");
+            var result = await _repository.GetAllAsync(pagination);
+            return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateSuccess(result, "Stock payment records retrieved successfully.");
         }
 
         public async Task<InternalActionResult<StockPaymentInfo?>> GetByIdAsync(int id)
@@ -29,13 +29,13 @@ namespace CardApplicationAPI.Services.Implementations
             return FactoryResponse<StockPaymentInfo?>.CreateSuccess(item, "Stock payment record retrieved successfully.");
         }
 
-        public async Task<InternalActionResult<IEnumerable<StockPaymentInfo>>> GetByStockItemIdAsync(int stockItemId)
+        public async Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination)
         {
             if (stockItemId <= 0)
-                return FactoryResponse<IEnumerable<StockPaymentInfo>>.CreateFail("Stock item id is invalid.");
+                return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateFail("Stock item id is invalid.", ApplicationActionStatusCodes.ValidationFailed);
 
-            var result = await _repository.GetByStockItemIdAsync(stockItemId);
-            return FactoryResponse<IEnumerable<StockPaymentInfo>>.CreateSuccess(result, "Payments for stock item retrieved successfully.");
+            var result = await _repository.GetByStockItemIdAsync(stockItemId, pagination);
+            return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateSuccess(result, "Payments for stock item retrieved successfully.");
         }
 
         public async Task<InternalActionResult<StockPaymentInfo>> AddAsync(StockPaymentInfo model)

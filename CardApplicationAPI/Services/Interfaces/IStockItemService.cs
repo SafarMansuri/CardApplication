@@ -5,13 +5,13 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface IStockItemService
     {
-        Task<InternalActionResult<IEnumerable<StockItem>>> GetAllAsync();
+        Task<InternalActionResult<PaginatedResult<StockItem>>> GetAllAsync(PaginationParams pagination);
         Task<InternalActionResult<StockItem?>> GetByIdAsync(int id);
         Task<InternalActionResult<StockItem>> AddAsync(StockItem model);
         Task<InternalActionResult<bool>> UpdateAsync(StockItem model);
         Task<InternalActionResult<bool>> DeleteAsync(int id);
-        Task<InternalActionResult<IEnumerable<StockItem>>> GetByPartyNameAsync(string partyName);
-        Task<InternalActionResult<IEnumerable<StockItem>>> GetByStatusAsync(string status);
-        Task<InternalActionResult<IEnumerable<StockItem>>> GetByInOutAsync(string inOut);
+        Task<InternalActionResult<PaginatedResult<StockItem>>> GetByPartyNameAsync(string partyName, PaginationParams pagination);
+        Task<InternalActionResult<PaginatedResult<StockItem>>> GetByStatusAsync(string status, PaginationParams pagination);
+        Task<InternalActionResult<PaginatedResult<StockItem>>> GetByInOutAsync(string inOut, PaginationParams pagination);
     }
 }

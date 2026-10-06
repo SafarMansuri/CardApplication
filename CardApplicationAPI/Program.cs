@@ -71,6 +71,12 @@ namespace CardApplicationAPI
             builder.Services.AddScoped<IStockPaymentInfoService, StockPaymentInfoService>();
             builder.Services.AddScoped<ICashLedgerRepository, CashLedgerRepository>();
             builder.Services.AddScoped<ICashLedgerService, CashLedgerService>();
+            builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+            builder.Services.AddScoped<IBankAccountService, BankAccountService>();
+            builder.Services.AddScoped<IBankTransactionRepository, BankTransactionRepository>();
+            builder.Services.AddScoped<IBankTransactionService, BankTransactionService>();
+            builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+            builder.Services.AddScoped<IDashboardService, DashboardService>();
             builder.Services.AddSingleton<PasswordHasherHelper>();
 
             builder.Services.AddDbContext<AppDbContext>(options =>

@@ -16,12 +16,20 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination)
+        public async Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null)
         {
-            var result = await _context.StockPaymentInfo
+            var query = _context.StockPaymentInfo
+                .AsNoTracking()
                 .Include(x => x.StockItem)
-                .OrderByDescending(x => x.Id)
-                .ToPaginatedResultAsync(pagination);
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(partyName))
+                query = query.Where(x => x.PartyName != null && x.PartyName.ToLower() == partyName.Trim().ToLower());
+
+            if (!string.IsNullOrWhiteSpace(inOut))
+                query = query.Where(x => x.InOut != null && x.InOut.ToLower() == inOut.Trim().ToLower());
+
+            var result = await query.OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
             return new PaginatedResult<StockPaymentInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
@@ -67,6 +75,7 @@ namespace CardApplicationAPI.Repositories.Implementations
             existing.Date = model.Date;
             existing.PartyName = model.PartyName;
             existing.Bank = model.Bank;
+            existing.InOut = model.InOut;
             existing.Remarks = model.Remarks;
             existing.StockItemId = model.StockItemId;
             existing.UpdatedAt = DateTime.UtcNow;
@@ -103,6 +112,7 @@ namespace CardApplicationAPI.Repositories.Implementations
                 Date = entity.Date,
                 PartyName = entity.PartyName,
                 Bank = entity.Bank,
+                InOut = entity.InOut,
                 Remarks = entity.Remarks,
                 StockItemId = entity.StockItemId,
                 CreatedAt = entity.CreatedAt,
@@ -123,6 +133,7 @@ namespace CardApplicationAPI.Repositories.Implementations
                 Date = model.Date,
                 PartyName = model.PartyName,
                 Bank = model.Bank,
+                InOut = model.InOut,
                 Remarks = model.Remarks,
                 StockItemId = model.StockItemId,
                 CreatedAt = model.CreatedAt,

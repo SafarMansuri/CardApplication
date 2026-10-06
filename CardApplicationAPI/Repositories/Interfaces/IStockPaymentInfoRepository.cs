@@ -5,7 +5,7 @@ namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface IStockPaymentInfoRepository
     {
-        Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination);
+        Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null);
         Task<StockPaymentInfo?> GetByIdAsync(int id);
         Task<PaginatedResult<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination);
         Task<StockPaymentInfo> CreateAsync(StockPaymentInfo model);

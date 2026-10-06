@@ -20,10 +20,16 @@ namespace CardApplicationAPI.Data.DBContext
         public DbSet<StockItemEntity> StockItems { get; set; }
         public DbSet<StockPaymentInfoEntity> StockPaymentInfo { get; set; }
         public DbSet<CashLedgerEntity> CashLedger { get; set; }
+        public DbSet<BankAccountEntity> BankAccounts { get; set; }
+        public DbSet<BankTransactionEntity> BankTransactions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<StockPaymentInfoEntity>()
+                .HasIndex(x => x.StockItemId)
+                .IsUnique();
 
             modelBuilder.Entity<StockPaymentInfoEntity>()
                 .HasOne(x => x.StockItem)
@@ -44,6 +50,28 @@ namespace CardApplicationAPI.Data.DBContext
 
             modelBuilder.Entity<CashLedgerEntity>()
                 .HasCheckConstraint("CK_CashLedger_Amount", "[Amount] > 0");
+
+            modelBuilder.Entity<BankAccountEntity>()
+                .HasIndex(x => x.AccountName)
+                .IsUnique();
+
+            modelBuilder.Entity<BankTransactionEntity>()
+                .HasOne(x => x.Account)
+                .WithMany(x => x.Transactions)
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BankTransactionEntity>()
+                .HasOne(x => x.RelatedAccount)
+                .WithMany()
+                .HasForeignKey(x => x.RelatedAccountId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<BankTransactionEntity>()
+                .HasCheckConstraint("CK_BankTransaction_TransactionType", "[TransactionType] IN ('OPENING', 'IN', 'OUT', 'TRANSFER_IN', 'TRANSFER_OUT')");
+
+            modelBuilder.Entity<BankTransactionEntity>()
+                .HasCheckConstraint("CK_BankTransaction_Amount", "[Amount] > 0");
         }
     }
 }

@@ -5,7 +5,7 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface IStockPaymentInfoService
     {
-        Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetAllAsync(PaginationParams pagination);
+        Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null);
         Task<InternalActionResult<StockPaymentInfo?>> GetByIdAsync(int id);
         Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination);
         Task<InternalActionResult<StockPaymentInfo>> AddAsync(StockPaymentInfo model);

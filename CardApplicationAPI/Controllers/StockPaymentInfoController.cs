@@ -19,9 +19,12 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockPaymentInfo>>>> GetAll([FromQuery] PaginationParams pagination)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockPaymentInfo>>>> GetAll(
+            [FromQuery] PaginationParams pagination,
+            [FromQuery] string? partyName,
+            [FromQuery] string? inOut)
         {
-            var result = await _service.GetAllAsync(pagination);
+            var result = await _service.GetAllAsync(pagination, partyName, inOut);
             return result;
         }
 
@@ -36,30 +39,6 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<PaginatedResult<StockPaymentInfo>>>> GetByStockItemId(int stockItemId, [FromQuery] PaginationParams pagination)
         {
             var result = await _service.GetByStockItemIdAsync(stockItemId, pagination);
-            return result;
-        }
-
-        [HttpPost]
-        public async Task<ActionResult<InternalActionResult<StockPaymentInfo>>> Create([FromBody] StockPaymentInfo model)
-        {
-            var result = await _service.AddAsync(model);
-            return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<ActionResult<InternalActionResult<bool>>> Update(int id, [FromBody] StockPaymentInfo model)
-        {
-            if (id != model.Id)
-                return BadRequest(FactoryResponse<bool>.CreateFail("Stock payment ID mismatch."));
-
-            var result = await _service.UpdateAsync(model);
-            return result;
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<ActionResult<InternalActionResult<bool>>> Delete(int id)
-        {
-            var result = await _service.DeleteAsync(id);
             return result;
         }
     }

@@ -14,9 +14,9 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetAllAsync(PaginationParams pagination)
+        public async Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null)
         {
-            var result = await _repository.GetAllAsync(pagination);
+            var result = await _repository.GetAllAsync(pagination, partyName, inOut);
             return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateSuccess(result, "Stock payment records retrieved successfully.");
         }
 

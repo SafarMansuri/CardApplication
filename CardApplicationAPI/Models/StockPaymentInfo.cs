@@ -23,6 +23,8 @@ namespace CardApplicationAPI.Models
 
         public string? Bank { get; set; }
 
+        public string? InOut { get; set; }
+
         public string? Remarks { get; set; }
 
         public int StockItemId { get; set; }

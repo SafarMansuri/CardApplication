@@ -34,6 +34,9 @@ namespace CardApplicationAPI.Data.Entities
         [Column("BANK")]
         public string? Bank { get; set; }
 
+        [Column("IN/OUT")]
+        public string? InOut { get; set; }
+
         [Column("REMARKS")]
         public string? Remarks { get; set; }
 

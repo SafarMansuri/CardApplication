@@ -1,8 +1,22 @@
 # CardApplication API Documentation
 
+## Dashboard
+
+### GET /api/Dashboard/summary
+
+Returns the dashboard headline totals in one authenticated request. The response is wrapped in the common API response envelope; `resultObject` contains:
+
+- `totalBankBalance`: total of opening balances and `IN`/`TRANSFER_IN`, less `OUT`/`TRANSFER_OUT`, across all bank accounts.
+- `totalAvailableCash`: cash ledger opening balance plus `IN`, less `OUT`. This is separate from bank balance.
+- `totalSwipes`: count of all `CardInfo` records.
+- `totalPartyProfit`: sum of the `profit` value on each `CardInfo` swipe record. This is profit accrued for parties, not a measure of payments made or still pending.
+- `totalStockItems`: count of stock records with `inOut` set to `IN`. This counts records, not physical units, because stock records do not have a quantity field.
+
+The bank and cash values are lifetime/current ledger balances. Swipe count and party profit cover all recorded swipe rows. Dashboard tiles can link to the existing bank, cash ledger, card payment, and stock pages for detailed data.
+
 ## Overview
 
-This API is built with ASP.NET Core and provides authentication, user management, card information management, stock tracking, stock payment tracking, and cash ledger tracking.
+This API is built with ASP.NET Core and provides authentication, user management, card information and payment summaries, stock and stock payment tracking, cash ledger tracking, and bank account transaction tracking.
 
 The application follows a layered architecture:
 
@@ -25,7 +39,7 @@ Examples:
 - Local development: https://localhost:7154
 - Local HTTP: http://localhost:5156
 
-Swagger UI is available in development for API exploration.
+Swagger UI is available at `/swagger` when running the API locally.
 
 ---
 
@@ -323,46 +337,46 @@ Delete stock item.
 
 Base route: /api/StockPaymentInfo
 
+Stock payment summaries are derived from the stock item itself. A record is created, updated, or deleted automatically when the matching StockItem is created, updated, or removed. This keeps the payment sheet aligned with the stock source of truth and avoids direct manual edits.
+
 ### GET /api/StockPaymentInfo
 
-Get a paginated list of stock payment records. Accepts `pageNumber` (default `1`) and `pageSize` (default `10`, maximum `100`). The response uses the common `items` and `pagination` structure.
+Get a paginated list of stock payment summary records. Accepts `pageNumber` (default `1`), `pageSize` (default `10`), optional `partyName`, and optional `inOut` filter. The response uses the common `items` and `pagination` structure.
 
 ### GET /api/StockPaymentInfo/{id}
 
-Get a single payment record by ID.
+Get a single stock payment summary by ID.
 
 ### GET /api/StockPaymentInfo/stock/{stockItemId}
 
-Get a paginated list of payment records for a specific stock item. Accepts `pageNumber` and `pageSize` as query parameters.
+Get the payment summary for one stock item. Accepts `pageNumber` and `pageSize` as query parameters.
 
-### POST /api/StockPaymentInfo
+Business rules:
 
-Create a stock payment record.
+- `In` payment means the stock came in / the business is paying out to the party.
+- `Out` payment means the stock went out / the business is receiving from the party.
+- `amount` is the stock item `amount` for that record.
+- `date` is the stock item `inDate`, `outDate`, or created date.
+- `partyName`, `bank`, `inOut`, and `remarks` are synchronized from the linked stock item.
 
-Request body example:
+Example summary response shape:
 
 ```json
 {
-  "no": "SP-001",
-  "accountName": "ABC Traders",
-  "accountNo": "1234567890",
-  "ifsc": "HDFC0001234",
-  "amount": 50000.00,
+  "id": 12,
+  "no": "ST-001",
+  "accountName": "ABC Mobile",
+  "accountNo": null,
+  "ifsc": null,
+  "amount": 72000.00,
   "date": "2026-09-24T00:00:00",
   "partyName": "ABC Mobile",
-  "bank": "HDFC",
-  "remarks": "Advance payment",
-  "stockItemId": 1
+  "bank": "Cash",
+  "inOut": "IN",
+  "remarks": "Purchased from supplier",
+  "stockItemId": 7
 }
 ```
-
-### PUT /api/StockPaymentInfo/{id}
-
-Update stock payment detail.
-
-### DELETE /api/StockPaymentInfo/{id}
-
-Delete stock payment detail.
 
 ---
 
@@ -435,9 +449,183 @@ Delete a cash ledger record.
 
 ---
 
+## Bank Accounts
+
+Base route: `/api/BankAccount`
+
+Bank accounts are stored as rows, so adding another account does not require a database schema change. The account name must be unique. These endpoints are separate from `CashLedger`; this module does not modify or combine cash ledger records.
+
+### GET /api/BankAccount
+
+List bank accounts, including inactive accounts, ordered by account name.
+
+Query parameters:
+
+- `pageNumber` (optional, default `1`, minimum `1`)
+- `pageSize` (optional, default `10`, range `1`-`100`)
+
+Example: `/api/BankAccount?pageNumber=2&pageSize=25`
+
+The response `resultObject` contains `items` and `pagination` metadata (`totalCount`, `pageSize`, `currentPage`, `totalPages`, `hasNext`, `hasPrevious`).
+
+### GET /api/BankAccount/{id}
+
+Get one account by ID.
+
+### POST /api/BankAccount
+
+Create a bank account. `accountName` and `bankName` are required; `accountNo` is optional.
+
+```json
+{
+  "accountName": "Main Current Account",
+  "bankName": "State Bank",
+  "accountNo": "1000000001",
+  "isActive": true
+}
+```
+
+### PUT /api/BankAccount/{id}
+
+Update the account details and active status. The route `id` must match the body `id`.
+
+```json
+{
+  "id": 1,
+  "accountName": "Main Current Account",
+  "bankName": "State Bank",
+  "accountNo": "1000000001",
+  "isActive": true
+}
+```
+
+### DELETE /api/BankAccount/{id}
+
+Delete an account. Its own bank transactions are configured to be deleted with it. A referenced related account can prevent deletion while a transaction still refers to it.
+
+### GET /api/BankAccount/summary/total
+
+Return one decimal value containing the total current balance across all bank accounts.
+
+### GET /api/BankAccount/summary/accounts
+
+Return each account's opening, incoming, outgoing, transfer-in, transfer-out, and current balances. Balances are calculated from transaction rows; no balance columns are maintained on the account.
+
+```text
+CurrentBalance = OpeningBalance + TotalIn + TransferIn - TotalOut - TransferOut
+```
+
+The aggregate assumes all accounts use the same currency. There is no currency conversion.
+
+---
+
+## Bank Transactions
+
+Base route: `/api/BankTransaction`
+
+Bank transactions record account movements. A normal transaction uses `OPENING`, `IN`, or `OUT`; transfers between managed bank accounts use the dedicated transfer endpoint and create `TRANSFER_OUT` and `TRANSFER_IN` entries automatically. Amounts must be greater than zero. `accountId` is required for normal transactions; `relatedAccountId`, `referenceNo`, and `remarks` are optional.
+
+### GET /api/BankTransaction
+
+List transactions, newest transaction date first.
+
+Query parameters:
+
+- `pageNumber` (optional, default `1`, minimum `1`)
+- `pageSize` (optional, default `10`, range `1`-`100`)
+
+Example: `/api/BankTransaction?pageNumber=2&pageSize=25`
+
+The response `resultObject` contains `items` and `pagination` metadata (`totalCount`, `pageSize`, `currentPage`, `totalPages`, `hasNext`, `hasPrevious`).
+
+### GET /api/BankTransaction/{id}
+
+Get one transaction by ID, including its account and optional related account details.
+
+### GET /api/BankTransaction/account/{accountId}
+
+List transactions belonging to the specified account, newest transaction date first.
+
+### POST /api/BankTransaction
+
+Create a single-account movement. Use `OPENING` for opening funds, `IN` for money received from outside the managed accounts, or `OUT` for an external payment or expense. Use `POST /api/BankTransaction/transfer` for transfers between managed accounts.
+
+```json
+{
+  "accountId": 1,
+  "relatedAccountId": null,
+  "transactionDate": "2026-09-29T12:30:00",
+  "transactionType": "IN",
+  "amount": 25000.00,
+  "referenceNo": "IN-001",
+  "remarks": "Customer payment received"
+}
+```
+
+#### Recording an outgoing payment
+
+Use `OUT` when money leaves one account for an external recipient or expense. Set `accountId` to the account being debited and leave `relatedAccountId` null. The amount must be positive; the balance summary subtracts it from that account's balance. This creates only an outgoing entry and does not create a transaction for a recipient or another account.
+
+```json
+{
+  "accountId": 1,
+  "relatedAccountId": null,
+  "transactionDate": "2026-09-29T13:00:00",
+  "transactionType": "OUT",
+  "amount": 5000.00,
+  "referenceNo": "PAY-001",
+  "remarks": "Office expense"
+}
+```
+
+### POST /api/BankTransaction/transfer
+
+Transfer money between two managed bank accounts in one request. The API verifies both accounts exist and rejects a transfer where the source and destination are the same account. It creates a `TRANSFER_OUT` entry for the source and a matching `TRANSFER_IN` entry for the destination, with reciprocal `relatedAccountId` values. Both entries use the same amount, transaction date, reference number, and remarks. They are saved together in one database transaction; if saving either entry fails, neither is committed.
+
+Request body:
+
+```json
+{
+  "fromAccountId": 1,
+  "toAccountId": 2,
+  "transactionDate": "2026-09-29T14:00:00",
+  "amount": 1000.00,
+  "referenceNo": "TRF-001",
+  "remarks": "Move funds to savings"
+}
+```
+
+The source account balance decreases by the amount and the destination account balance increases by the same amount, leaving their combined balance unchanged. The response `resultObject` contains `sourceTransaction` and `destinationTransaction` with the created ledger rows. Account IDs must be positive and different; the amount must be greater than zero. The endpoint does not currently prevent the source account from going below zero.
+
+The account summary is calculated from its transaction rows using:
+
+```text
+CurrentBalance = OpeningBalance + TotalIn + TransferIn - TotalOut - TransferOut
+```
+
+`IN` and `OUT` represent money entering or leaving an account outside this account-to-account transfer process. The transfer endpoint creates the corresponding `TRANSFER_IN` and `TRANSFER_OUT` entries automatically.
+
+### PUT /api/BankTransaction/{id}
+
+Update a transaction. The route `id` must match the body `id`. Use the same request fields as create, with the transaction `id` included.
+
+### DELETE /api/BankTransaction/{id}
+
+Delete one transaction. The account balance summaries are recalculated from the remaining entries on the next read.
+
+---
+
+## Weather Forecast Sample
+
+### GET /WeatherForecast
+
+Return five generated sample forecast records. This is a protected sample endpoint and requires a bearer token; it is not connected to an external weather service.
+
+---
+
 ## Common response format
 
-All responses follow the same format:
+Most business API responses use this envelope:
 
 ```json
 {
@@ -448,7 +636,7 @@ All responses follow the same format:
 }
 ```
 
-Common status values:
+Authentication endpoints return their own JSON response shapes (for example, login returns `accessToken`, `refreshToken`, and `user`). Common business response status values are:
 
 - 200 = Success
 - 400 = Bad request / validation failure
@@ -481,13 +669,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## Business summary
 
-This application supports the following business flow:
+This application supports the following business flows:
 
 1. User authenticates and receives a JWT token.
-2. User creates or manages stock items.
-3. Stock payment records link to the relevant stock item.
-4. Cash ledger tracks opening, incoming, and outgoing cash.
-5. Business reports can be derived from item movement + payment + cash ledger.
+2. Users with the required role manage users; authenticated users manage card, stock, cash, and bank records.
+3. PaymentInfo is recalculated from CardInfo by party; StockPaymentInfo is synchronized from its StockItem.
+4. CashLedger tracks opening, incoming, and outgoing cash independently.
+5. BankAccounts and BankTransactions support multiple dynamic accounts, with balances calculated from movements.
 
 This is useful for:
 
@@ -495,7 +683,7 @@ This is useful for:
 - party-wise stock tracking
 - payment history against stock items
 - opening/in/out cash balance reporting
-- overall daily cash management
+- per-account and combined bank balance reporting
 
 ---
 
@@ -512,12 +700,14 @@ The current project has a few things to review before production use:
 
 ## Quick summary
 
-This API has 5 major modules:
+This API has these modules:
 
 - Auth
 - Users
 - Card info
 - Stock items and stock payment
 - Cash ledger
+- Bank accounts and bank transactions
+- Weather forecast sample
 
-Together, these modules cover the business flow of tracking stock movement, stock payments, and cash movement for daily operations.
+Together, these modules cover stock movement, derived payment summaries, cash movement, and movements across multiple bank accounts. `PaymentInfo` and `StockPaymentInfo` are read-only derived data; `CashLedger` remains a separate legacy cash ledger.

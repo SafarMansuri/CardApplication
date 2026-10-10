@@ -1,5 +1,6 @@
 using CardApplicationAPI.Helpers;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using CardApplicationAPI.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -88,8 +89,8 @@ namespace CardApplicationAPI.Controllers
         [HttpPost("seed")]
         public async Task<IActionResult> Seed()
         {
-            var users = await _userRepository.GetAllAsync();
-            if (users.Any())
+            var users = await _userRepository.GetAllAsync(new PaginationParams { PageSize = 1 });
+            if (users.Pagination.TotalCount > 0)
                 return BadRequest(new { message = "Users already exist. Seed is only allowed on an empty user table." });
 
             var masterUser = new Users

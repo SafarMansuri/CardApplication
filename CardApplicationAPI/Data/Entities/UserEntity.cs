@@ -9,7 +9,7 @@ namespace CardApplicationAPI.Data.Entities
         [Key]
         public int Id { get; set; }
 
-        [Required]
+        [Required, MaxLength(100)]
         public string Username { get; set; } = string.Empty;
 
         [Required]

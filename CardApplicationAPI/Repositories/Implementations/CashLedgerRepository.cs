@@ -1,6 +1,7 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,13 +16,19 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<CashLedger>> GetAllAsync()
+        public async Task<PaginatedResult<CashLedger>> GetAllAsync(PaginationParams pagination)
         {
-            var entities = await _context.CashLedger
+            var page = await _context.CashLedger
+                .AsNoTracking()
                 .OrderBy(x => x.TransactionDate)
-                .ToListAsync();
+                .ThenBy(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
 
-            return entities.Select(MapToModel);
+            return new PaginatedResult<CashLedger>
+            {
+                Items = page.Items.Select(MapToModel),
+                Pagination = page.Pagination
+            };
         }
 
         public async Task<CashLedger?> GetByIdAsync(long id)
@@ -30,15 +37,21 @@ namespace CardApplicationAPI.Repositories.Implementations
             return entity == null ? null : MapToModel(entity);
         }
 
-        public async Task<IEnumerable<CashLedger>> GetByTypeAsync(string transactionType)
+        public async Task<PaginatedResult<CashLedger>> GetByTypeAsync(string transactionType, PaginationParams pagination)
         {
             var type = transactionType.Trim();
-            var entities = await _context.CashLedger
+            var page = await _context.CashLedger
+                .AsNoTracking()
                 .Where(x => x.TransactionType == type)
                 .OrderBy(x => x.TransactionDate)
-                .ToListAsync();
+                .ThenBy(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
 
-            return entities.Select(MapToModel);
+            return new PaginatedResult<CashLedger>
+            {
+                Items = page.Items.Select(MapToModel),
+                Pagination = page.Pagination
+            };
         }
 
         public async Task<CashLedger> CreateAsync(CashLedger model)

@@ -20,10 +20,10 @@ namespace CardApplicationAPI.Controllers
 
         // ✅ GET: api/CardInfo
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<CardInfo>>>> GetAll()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<CardInfo>>>> GetAll([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetAllAsync();
-            return result; // InternalActionResult already includes status/message
+            var result = await _service.GetAllAsync(pagination);
+            return StatusCode((int)result.StatusCode, result);
         }
 
         // ✅ GET: api/CardInfo/{id}
@@ -32,7 +32,7 @@ namespace CardApplicationAPI.Controllers
         {
             var result = await _service.GetByIdAsync(id);
 
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         // ✅ POST: api/CardInfo
@@ -40,6 +40,8 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<CardInfo>>> Create([FromBody] CardInfo user)
         {
             var result = await _service.AddAsync(user);
+            if (result.StatusCode != ApplicationActionStatusCodes.Success)
+                return StatusCode((int)result.StatusCode, result);
             return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
         }
 
@@ -48,10 +50,10 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<bool>>> Update(int id, [FromBody] CardInfo user)
         {
             if (id != user.Id)
-                return BadRequest(FactoryResponse<bool>.CreateFail("User ID mismatch."));
+                return BadRequest(FactoryResponse<bool>.CreateFail("Card info ID mismatch.", ApplicationActionStatusCodes.BadRequest));
 
             var result = await _service.UpdateAsync(user);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         // ✅ DELETE: api/CardInfo/{id}
@@ -59,7 +61,7 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<bool>>> Delete(int id)
         {
             var result = await _service.DeleteAsync(id);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
     }
 }

@@ -1,6 +1,7 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,13 +16,21 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<StockPaymentInfo>> GetAllAsync()
+        public async Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null)
         {
-            var entities = await _context.StockPaymentInfo
+            var query = _context.StockPaymentInfo
+                .AsNoTracking()
                 .Include(x => x.StockItem)
-                .ToListAsync();
+                .AsQueryable();
 
-            return entities.Select(MapToModel);
+            if (!string.IsNullOrWhiteSpace(partyName))
+                query = query.Where(x => x.PartyName != null && x.PartyName.ToLower() == partyName.Trim().ToLower());
+
+            if (!string.IsNullOrWhiteSpace(inOut))
+                query = query.Where(x => x.InOut != null && x.InOut.ToLower() == inOut.Trim().ToLower());
+
+            var result = await query.OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockPaymentInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         public async Task<StockPaymentInfo?> GetByIdAsync(int id)
@@ -33,13 +42,11 @@ namespace CardApplicationAPI.Repositories.Implementations
             return entity == null ? null : MapToModel(entity);
         }
 
-        public async Task<IEnumerable<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId)
+        public async Task<PaginatedResult<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination)
         {
-            var entities = await _context.StockPaymentInfo
-                .Where(x => x.StockItemId == stockItemId)
-                .ToListAsync();
-
-            return entities.Select(MapToModel);
+            var result = await _context.StockPaymentInfo.Where(x => x.StockItemId == stockItemId)
+                .OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockPaymentInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         public async Task<StockPaymentInfo> CreateAsync(StockPaymentInfo model)
@@ -68,6 +75,7 @@ namespace CardApplicationAPI.Repositories.Implementations
             existing.Date = model.Date;
             existing.PartyName = model.PartyName;
             existing.Bank = model.Bank;
+            existing.InOut = model.InOut;
             existing.Remarks = model.Remarks;
             existing.StockItemId = model.StockItemId;
             existing.UpdatedAt = DateTime.UtcNow;
@@ -104,6 +112,7 @@ namespace CardApplicationAPI.Repositories.Implementations
                 Date = entity.Date,
                 PartyName = entity.PartyName,
                 Bank = entity.Bank,
+                InOut = entity.InOut,
                 Remarks = entity.Remarks,
                 StockItemId = entity.StockItemId,
                 CreatedAt = entity.CreatedAt,
@@ -124,6 +133,7 @@ namespace CardApplicationAPI.Repositories.Implementations
                 Date = model.Date,
                 PartyName = model.PartyName,
                 Bank = model.Bank,
+                InOut = model.InOut,
                 Remarks = model.Remarks,
                 StockItemId = model.StockItemId,
                 CreatedAt = model.CreatedAt,

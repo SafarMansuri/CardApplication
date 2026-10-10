@@ -1,12 +1,13 @@
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 
 namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface ICashLedgerRepository
     {
-        Task<IEnumerable<CashLedger>> GetAllAsync();
+        Task<PaginatedResult<CashLedger>> GetAllAsync(PaginationParams pagination);
         Task<CashLedger?> GetByIdAsync(long id);
-        Task<IEnumerable<CashLedger>> GetByTypeAsync(string transactionType);
+        Task<PaginatedResult<CashLedger>> GetByTypeAsync(string transactionType, PaginationParams pagination);
         Task<CashLedger> CreateAsync(CashLedger model);
         Task<CashLedger> UpdateAsync(CashLedger model);
         Task<bool> DeleteAsync(long id);

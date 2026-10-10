@@ -2,6 +2,7 @@
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Helpers;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 namespace CardApplicationAPI.Repositories.Implementations
@@ -29,10 +30,10 @@ namespace CardApplicationAPI.Repositories.Implementations
             return _passwordHasher.HashPassword(password);
         }
 
-        public async Task<IEnumerable<Users>> GetAllAsync()
+        public async Task<PaginatedResult<Users>> GetAllAsync(PaginationParams pagination)
         {
-            var entities = await _context.Users.ToListAsync();
-            return entities.Select(MapToModel);
+            var result = await _context.Users.OrderBy(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<Users> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         public async Task<Users?> GetByIdAsync(int id)

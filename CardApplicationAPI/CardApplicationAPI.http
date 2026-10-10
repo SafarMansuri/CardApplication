@@ -1,6 +1,515 @@
-@CardApplicationAPI_HostAddress = http://localhost:5156
+@CardApplicationAPI_HostAddress = https://localhost:7154/
+@username = Master
+@password = Master@123
 
-GET {{CardApplicationAPI_HostAddress}}/weatherforecast/
+### Login and capture access token
+# @name login
+POST {{CardApplicationAPI_HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+	"username": "safar",
+	"password": "Safar@123"
+}
+
+### PARTY PAYMENT SETTLEMENT TEST - create Party A swipe 1
+# Use a test database or change the unique party/card values before rerunning this persistent scenario.
+# @name createPartyAFirst
+POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-001",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 100.00,
+	"profit": 10.00,
+	"date": "2026-10-10T10:00:00Z",
+	"remarks": "First unsettled swipe",
+	"limitUsed": false,
+	"bankName": "SBI"
+}
+
+### Create Party A swipe 2 with a different amount
+# @name createPartyASecond
+POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-002",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 250.00,
+	"profit": 30.00,
+	"date": "2026-10-10T11:00:00Z",
+	"remarks": "Second unsettled swipe",
+	"limitUsed": false,
+	"bankName": "SBI"
+}
+
+### Create pending Party B for dashboard comparison
+# @name createPartyB
+POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-B-20261010-001",
+	"partyName": "HTTP Settlement Party B 20261010",
+	"deduction": 1200.00,
+	"profit": 180.00,
+	"date": "2026-10-10T12:00:00Z",
+	"remarks": "Party B remains pending",
+	"limitUsed": false,
+	"bankName": "HDFC"
+}
+
+### Verify Party A initial summary and capture its ID
+# Expected: swipeCount=2, totalAmount=350, totalProfit=40, paidAmount=0,
+# pendingAmount=350, paymentStatus=Pending.
+# @name partyASummary
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010
+Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
-###
+@partyASummaryId = {{partyASummary.response.body.$.resultObject.items[0].id}}
+@partyAFirstId = {{createPartyAFirst.response.body.$.resultObject.id}}
+@partyASecondId = {{createPartyASecond.response.body.$.resultObject.id}}
+
+### Verify dashboard before payment
+# This scenario contributes 1550 to totalPendingPartyPayment (350 Party A + 1200 Party B).
+GET {{CardApplicationAPI_HostAddress}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify Pending filter
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=20&status=Pending
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify Paid filter before Party A settlement
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=20&status=Paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Invalid status must return HTTP 400
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=20&status=Unknown
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Mark all currently pending Party A swipes paid
+# Expected: paidAmount=350, pendingAmount=0, paymentStatus=Paid, lastPaidAt and lastPaidBy populated.
+PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify paid Party A lifetime summary
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010&status=Paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify dashboard after first payment
+# This scenario now contributes only Party B's 1200 pending amount.
+GET {{CardApplicationAPI_HostAddress}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Settled swipe update must return HTTP 409
+PUT {{CardApplicationAPI_HostAddress}}/api/CardInfo/{{partyASecondId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"id": {{partyASecondId}},
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-002",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 999.00,
+	"profit": 30.00,
+	"date": "2026-10-10T11:00:00Z",
+	"limitUsed": false,
+	"bankName": "SBI"
+}
+
+### Settled swipe delete must return HTTP 409
+DELETE {{CardApplicationAPI_HostAddress}}/api/CardInfo/{{partyAFirstId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Repeating Mark Paid without new pending swipes must return HTTP 409
+PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Create a new Party A swipe after payment
+# @name createPartyAThird
+POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-003",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 75.00,
+	"profit": 5.00,
+	"date": "2026-10-10T13:00:00Z",
+	"remarks": "New pending cycle",
+	"limitUsed": false,
+	"bankName": "SBI"
+}
+
+### Verify reopened lifetime summary
+# Expected: swipeCount=3, totalAmount=425, totalProfit=45, paidAmount=350,
+# pendingAmount=75, paymentStatus=Pending.
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify dashboard includes Party A's new pending 75
+GET {{CardApplicationAPI_HostAddress}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Settle Party A's second payment cycle
+PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Final Party A check: paidAmount=425, pendingAmount=0, status=Paid
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Optional role test: login as an existing normal User and expect HTTP 403 here
+# @normalUserToken = paste a User-role JWT here
+# PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+# Authorization: Bearer {{normalUserToken}}
+
+### Stock summary test: create stock item with IN direction
+# IN means stock is coming in, so the payment summary should match that stock item.
+# This is the source-of-truth record; the summary is created automatically.
+# @name createStockIn
+POST {{CardApplicationAPI_HostAddress}}/api/StockItem
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "no": "ST-INV-1001",
+  "inDate": "2026-09-23T00:00:00",
+  "outDate": null,
+  "imei": "IMEI-ST-1001",
+  "colour": "Black",
+  "model": "iPhone 15",
+  "gstMrp": 79999.00,
+  "amount": 72000.00,
+  "partyName": "Stock Party A",
+  "payment": "Cash",
+  "inOut": "IN",
+  "status": "Stock In",
+  "soldTo": "",
+  "remarks": "Purchased from supplier"
+}
+
+@stockInItemId = {{createStockIn.response.body.$.resultObject.id}}
+
+### Stock summary test: create stock item with OUT direction
+# OUT means goods are going out and payment is received from the party/customer.
+# @name createStockOut
+POST {{CardApplicationAPI_HostAddress}}/api/StockItem
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "no": "ST-SALE-2001",
+  "inDate": null,
+  "outDate": "2026-09-24T00:00:00",
+  "imei": "IMEI-ST-2001",
+  "colour": "Blue",
+  "model": "Samsung S24",
+  "gstMrp": 95000.00,
+  "amount": 86000.00,
+  "partyName": "Stock Party A",
+  "payment": "Bank",
+  "inOut": "OUT",
+  "status": "Sold",
+  "soldTo": "Retail Customer",
+  "remarks": "Stock sold to customer"
+}
+
+@stockOutItemId = {{createStockOut.response.body.$.resultObject.id}}
+
+### Stock summary test: create another party record to validate party filtering
+# @name createStockInOtherParty
+POST {{CardApplicationAPI_HostAddress}}/api/StockItem
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "no": "ST-INV-2002",
+  "inDate": "2026-09-25T00:00:00",
+  "outDate": null,
+  "imei": "IMEI-ST-2002",
+  "colour": "Silver",
+  "model": "OnePlus 12",
+  "gstMrp": 65000.00,
+  "amount": 59000.00,
+  "partyName": "Stock Party B",
+  "payment": "Cash",
+  "inOut": "IN",
+  "status": "Stock In",
+  "soldTo": "",
+  "remarks": "Purchase from another supplier"
+}
+
+### Read the generated stock payment summary rows for Party A
+GET {{CardApplicationAPI_HostAddress}}/api/StockPaymentInfo?pageNumber=1&pageSize=20&partyName=Stock%20Party%20A
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Read only the stock payment summary for the IN record
+GET {{CardApplicationAPI_HostAddress}}/api/StockPaymentInfo/stock/{{stockInItemId}}?pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Read only the stock payment summary for the OUT record
+GET {{CardApplicationAPI_HostAddress}}/api/StockPaymentInfo/stock/{{stockOutItemId}}?pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Read only IN records across all parties
+GET {{CardApplicationAPI_HostAddress}}/api/StockPaymentInfo?pageNumber=1&pageSize=20&inOut=IN
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Read only OUT records across all parties
+GET {{CardApplicationAPI_HostAddress}}/api/StockPaymentInfo?pageNumber=1&pageSize=20&inOut=OUT
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Stock summary test: update the stock item and ensure the summary refreshes
+PUT {{CardApplicationAPI_HostAddress}}/api/StockItem/{{stockInItemId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "id": {{stockInItemId}},
+  "no": "ST-INV-1001",
+  "inDate": "2026-09-23T00:00:00",
+  "outDate": null,
+  "imei": "IMEI-ST-1001",
+  "colour": "Black",
+  "model": "iPhone 15 Pro",
+  "gstMrp": 89999.00,
+  "amount": 76000.00,
+  "partyName": "Stock Party A",
+  "payment": "Cash",
+  "inOut": "IN",
+  "status": "Stock In",
+  "soldTo": "",
+  "remarks": "Updated stock item, summary should change automatically"
+}
+
+### Stock summary test: delete the updated stock item and confirm its summary is removed
+DELETE {{CardApplicationAPI_HostAddress}}/api/StockItem/{{stockInItemId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Confirm the deleted stock item no longer has a summary row
+GET {{CardApplicationAPI_HostAddress}}/api/StockPaymentInfo/stock/{{stockInItemId}}?pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Create a bank account
+# @name createBankAccount1
+POST {{CardApplicationAPI_HostAddress}}/api/BankAccount
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"accountName": "Main Bank Account",
+	"bankName": "State Bank",
+	"accountNo": "1000000001",
+	"isActive": true
+}
+
+### Create another bank account without changing schema
+# @name createBankAccount2
+POST {{CardApplicationAPI_HostAddress}}/api/BankAccount
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"accountName": "Business Current Account",
+	"bankName": "HDFC Bank",
+	"accountNo": "2000000002",
+	"isActive": true
+}
+
+### Get all bank accounts
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Get total balance across all bank accounts
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount/summary/total
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Get per-account balances
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount/summary/accounts?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Add opening balance to the first account
+# @name createBankOpening
+POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"accountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"transactionDate": "2026-09-29T09:00:00",
+	"transactionType": "OPENING",
+	"amount": 500000.00,
+	"referenceNo": "OPEN-001",
+	"remarks": "Opening balance of main account"
+}
+
+### Add an IN transaction
+# @name createBankIn
+POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"accountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"transactionDate": "2026-09-29T12:30:00",
+	"transactionType": "IN",
+	"amount": 25000.00,
+	"referenceNo": "IN-001",
+	"remarks": "Customer payment received"
+}
+
+### Add an OUT transaction
+# @name createBankOut
+POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"accountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"transactionDate": "2026-09-29T15:45:00",
+	"transactionType": "OUT",
+	"amount": 12000.00,
+	"referenceNo": "OUT-001",
+	"remarks": "Vendor payment"
+}
+
+### Transfer money atomically between the two test accounts
+# @name createBankTransfer
+POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction/transfer
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"fromAccountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"toAccountId": {{createBankAccount2.response.body.$.resultObject.id}},
+	"transactionDate": "2026-09-29T18:00:00",
+	"amount": 15000.00,
+	"referenceNo": "TRF-001",
+	"remarks": "Transfer to business current account"
+}
+
+### Verify an insufficient-balance transfer is rejected
+# The source starts with 500000 + 25000 - 12000 = 513000 before the successful transfer above.
+POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction/transfer
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"fromAccountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"toAccountId": {{createBankAccount2.response.body.$.resultObject.id}},
+	"transactionDate": "2026-09-29T18:00:00",
+	"amount": 600000.00,
+	"referenceNo": "TRF-INSUFFICIENT",
+	"remarks": "Expected to fail without creating either ledger entry"
+}
+
+### Get all transactions for the main bank account
+GET {{CardApplicationAPI_HostAddress}}/api/BankTransaction/account/{{createBankAccount1.response.body.$.resultObject.id}}?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Get all bank transactions
+GET {{CardApplicationAPI_HostAddress}}/api/BankTransaction?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Get the created IN transaction by id
+@bankInTransactionId = {{createBankIn.response.body.$.resultObject.id}}
+GET {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{bankInTransactionId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Get the second account by id
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount/{{createBankAccount2.response.body.$.resultObject.id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Update the created IN transaction
+PUT {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{bankInTransactionId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"id": {{bankInTransactionId}},
+	"accountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"transactionDate": "2026-09-29T12:30:00",
+	"transactionType": "IN",
+	"amount": 27500.00,
+	"referenceNo": "IN-001-UPDATED",
+	"remarks": "Updated customer payment received"
+}
+
+### Update the second bank account
+PUT {{CardApplicationAPI_HostAddress}}/api/BankAccount/{{createBankAccount2.response.body.$.resultObject.id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"id": {{createBankAccount2.response.body.$.resultObject.id}},
+	"accountName": "Business Current Account",
+	"bankName": "HDFC Bank",
+	"accountNo": "2000000002",
+	"isActive": true
+}
+
+### Verify total and per-account balances after transaction updates
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount/summary/total
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Verify per-account balances after transaction updates
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount/summary/accounts
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Delete the test IN transaction
+DELETE {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{bankInTransactionId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Delete the source transfer ledger entry
+@transferSourceTransactionId = {{createBankTransfer.response.body.$.resultObject.sourceTransaction.id}}
+DELETE {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{transferSourceTransactionId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Delete the destination transfer ledger entry
+@transferDestinationTransactionId = {{createBankTransfer.response.body.$.resultObject.destinationTransaction.id}}
+DELETE {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{transferDestinationTransactionId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### OPTIONAL CLEANUP: delete the second test account and its transactions
+# This cascades deletion to transactions belonging to this account.
+DELETE {{CardApplicationAPI_HostAddress}}/api/BankAccount/{{createBankAccount2.response.body.$.resultObject.id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Get paginated cash ledger entries
+GET {{CardApplicationAPI_HostAddress}}/api/CashLedger?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Get paginated cash ledger entries by type
+GET {{CardApplicationAPI_HostAddress}}/api/CashLedger/type/IN?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+

@@ -1,12 +1,13 @@
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 
 namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface IStockPaymentInfoRepository
     {
-        Task<IEnumerable<StockPaymentInfo>> GetAllAsync();
+        Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null);
         Task<StockPaymentInfo?> GetByIdAsync(int id);
-        Task<IEnumerable<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId);
+        Task<PaginatedResult<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination);
         Task<StockPaymentInfo> CreateAsync(StockPaymentInfo model);
         Task<StockPaymentInfo> UpdateAsync(StockPaymentInfo model);
         Task<bool> DeleteAsync(int id);

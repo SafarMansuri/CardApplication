@@ -14,10 +14,10 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<IEnumerable<CashLedger>>> GetAllAsync()
+        public async Task<InternalActionResult<PaginatedResult<CashLedger>>> GetAllAsync(PaginationParams pagination)
         {
-            var result = await _repository.GetAllAsync();
-            return FactoryResponse<IEnumerable<CashLedger>>.CreateSuccess(result, "Cash ledger retrieved successfully.");
+            var result = await _repository.GetAllAsync(pagination);
+            return FactoryResponse<PaginatedResult<CashLedger>>.CreateSuccess(result, "Cash ledger retrieved successfully.");
         }
 
         public async Task<InternalActionResult<CashLedger?>> GetByIdAsync(long id)
@@ -29,13 +29,13 @@ namespace CardApplicationAPI.Services.Implementations
             return FactoryResponse<CashLedger?>.CreateSuccess(item, "Cash ledger record retrieved successfully.");
         }
 
-        public async Task<InternalActionResult<IEnumerable<CashLedger>>> GetByTypeAsync(string transactionType)
+        public async Task<InternalActionResult<PaginatedResult<CashLedger>>> GetByTypeAsync(string transactionType, PaginationParams pagination)
         {
             if (string.IsNullOrWhiteSpace(transactionType))
-                return FactoryResponse<IEnumerable<CashLedger>>.CreateFail("Transaction type is required.");
+                return FactoryResponse<PaginatedResult<CashLedger>>.CreateFail("Transaction type is required.");
 
-            var result = await _repository.GetByTypeAsync(transactionType);
-            return FactoryResponse<IEnumerable<CashLedger>>.CreateSuccess(result, "Cash ledger filtered by type.");
+            var result = await _repository.GetByTypeAsync(transactionType, pagination);
+            return FactoryResponse<PaginatedResult<CashLedger>>.CreateSuccess(result, "Cash ledger filtered by type.");
         }
 
         public async Task<InternalActionResult<CashLedger>> AddAsync(CashLedger model)

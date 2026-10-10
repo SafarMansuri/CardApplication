@@ -19,9 +19,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<CashLedger>>>> GetAll()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<CashLedger>>>> GetAll([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetAllAsync();
+            var result = await _service.GetAllAsync(pagination);
             return result;
         }
 
@@ -33,9 +33,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet("type/{transactionType}")]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<CashLedger>>>> GetByType(string transactionType)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<CashLedger>>>> GetByType(string transactionType, [FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetByTypeAsync(transactionType);
+            var result = await _service.GetByTypeAsync(transactionType, pagination);
             return result;
         }
 

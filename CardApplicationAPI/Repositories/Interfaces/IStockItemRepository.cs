@@ -1,17 +1,18 @@
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 
 namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface IStockItemRepository
     {
-        Task<IEnumerable<StockItem>> GetAllAsync();
+        Task<PaginatedResult<StockItem>> GetAllAsync(PaginationParams pagination);
         Task<StockItem?> GetByIdAsync(int id);
         Task<StockItem> CreateAsync(StockItem model);
         Task<StockItem> UpdateAsync(StockItem model);
         Task<bool> DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
-        Task<IEnumerable<StockItem>> GetByPartyNameAsync(string partyName);
-        Task<IEnumerable<StockItem>> GetByStatusAsync(string status);
-        Task<IEnumerable<StockItem>> GetByInOutAsync(string inOut);
+        Task<PaginatedResult<StockItem>> GetByPartyNameAsync(string partyName, PaginationParams pagination);
+        Task<PaginatedResult<StockItem>> GetByStatusAsync(string status, PaginationParams pagination);
+        Task<PaginatedResult<StockItem>> GetByInOutAsync(string inOut, PaginationParams pagination);
     }
 }

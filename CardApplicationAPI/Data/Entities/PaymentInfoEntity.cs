@@ -1,5 +1,4 @@
-﻿using CardApplicationAPI.Models;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CardApplicationAPI.Data.Entities
@@ -12,32 +11,54 @@ namespace CardApplicationAPI.Data.Entities
         public DateTime? Date { get; set; }
 
         [Required, MaxLength(150)]
-        public string Name { get; set; } = string.Empty; 
+        public string PartyName { get; set; } = string.Empty;
 
-        [Required]
-        [MaxLength(100)]
-        public string Card { get; set; } = string.Empty;
-
-        public int? SwipeCount { get; set; }
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal? Amount { get; set; }
+        public int SwipeCount { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
-        public decimal? CreditAmount { get; set; }
+        public decimal? SwipeAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? TotalAmount { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal? Profit { get; set; }
 
-        [NotMapped]
-        public decimal TotalAmount => (Amount ?? 0) + (Profit ?? 0) - (CreditAmount ?? 0);
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? TotalProfit { get; set; }
 
-        public string? OutletName { get; set; }
-        public string? PaymentStatus { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PaidAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PendingAmount { get; set; }
+
+        [Required, MaxLength(20)]
+        public string PaymentStatus { get; set; } = "Pending";
+
+        public DateTime? LastPaidAt { get; set; }
+
+        public int? LastPaidByUserId { get; set; }
+
+        [MaxLength(100)]
+        public string? LastPaidByUsername { get; set; }
+
+        public bool LimitUsed { get; set; }
+
+        [Required, MaxLength(100)]
+        public string CardName { get; set; } = string.Empty;
+
+        [MaxLength(200)]
+        public string? Merchant { get; set; }
+
+        [MaxLength(150)]
+        public string? SwipePerson { get; set; }
+
+        [MaxLength(500)]
+        public string? Remarks { get; set; }
 
         public DateTime Createdat { get; set; } = DateTime.UtcNow;
 
         public DateTime Updatedat { get; set; } = DateTime.UtcNow;
-
-
-     }
+    }
 }

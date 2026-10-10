@@ -19,9 +19,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<StockItem>>>> GetAll()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockItem>>>> GetAll([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetAllAsync();
+            var result = await _service.GetAllAsync(pagination);
             return result;
         }
 
@@ -33,23 +33,23 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet("by-party/{partyName}")]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<StockItem>>>> GetByPartyName(string partyName)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockItem>>>> GetByPartyName(string partyName, [FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetByPartyNameAsync(partyName);
+            var result = await _service.GetByPartyNameAsync(partyName, pagination);
             return result;
         }
 
         [HttpGet("by-status/{status}")]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<StockItem>>>> GetByStatus(string status)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockItem>>>> GetByStatus(string status, [FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetByStatusAsync(status);
+            var result = await _service.GetByStatusAsync(status, pagination);
             return result;
         }
 
         [HttpGet("by-inout/{inOut}")]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<StockItem>>>> GetByInOut(string inOut)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<StockItem>>>> GetByInOut(string inOut, [FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetByInOutAsync(inOut);
+            var result = await _service.GetByInOutAsync(inOut, pagination);
             return result;
         }
 

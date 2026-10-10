@@ -14,10 +14,10 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetAllAsync(PaginationParams pagination)
+        public async Task<InternalActionResult<IEnumerable<BankTransaction>>> GetAllAsync()
         {
-            var result = await _repository.GetAllAsync(pagination);
-            return FactoryResponse<PaginatedResult<BankTransaction>>.CreateSuccess(result, "Bank transactions retrieved successfully.");
+            var result = await _repository.GetAllAsync();
+            return FactoryResponse<IEnumerable<BankTransaction>>.CreateSuccess(result, "Bank transactions retrieved successfully.");
         }
 
         public async Task<InternalActionResult<BankTransaction?>> GetByIdAsync(int id)
@@ -48,8 +48,8 @@ namespace CardApplicationAPI.Services.Implementations
                 return FactoryResponse<BankTransaction>.CreateFail("Transaction type is required.");
 
             normalizedType = normalizedType.ToUpperInvariant();
-            if (normalizedType != "OPENING" && normalizedType != "IN" && normalizedType != "OUT")
-                return FactoryResponse<BankTransaction>.CreateFail("Transaction type must be OPENING, IN, or OUT. Use the transfer endpoint for account transfers.");
+            if (normalizedType != "OPENING" && normalizedType != "IN" && normalizedType != "OUT" && normalizedType != "TRANSFER_IN" && normalizedType != "TRANSFER_OUT")
+                return FactoryResponse<BankTransaction>.CreateFail("Transaction type must be OPENING, IN, OUT, TRANSFER_IN, or TRANSFER_OUT.");
 
             if (model.Amount <= 0)
                 return FactoryResponse<BankTransaction>.CreateFail("Amount must be greater than zero.");
@@ -57,21 +57,6 @@ namespace CardApplicationAPI.Services.Implementations
             model.TransactionType = normalizedType;
             var created = await _repository.CreateAsync(model);
             return FactoryResponse<BankTransaction>.CreateSuccess(created, "Bank transaction added successfully.");
-        }
-
-        public async Task<InternalActionResult<BankTransferResult>> TransferAsync(BankTransferRequest request)
-        {
-            if (request.FromAccountId == request.ToAccountId)
-                return FactoryResponse<BankTransferResult>.CreateFail("Source and destination accounts must be different.", ApplicationActionStatusCodes.ValidationFailed);
-
-            if (request.Amount <= 0)
-                return FactoryResponse<BankTransferResult>.CreateFail("Amount must be greater than zero.", ApplicationActionStatusCodes.ValidationFailed);
-
-            var result = await _repository.TransferAsync(request);
-            if (result == null)
-                return FactoryResponse<BankTransferResult>.CreateFail("Source or destination bank account was not found.", ApplicationActionStatusCodes.NotFound);
-
-            return FactoryResponse<BankTransferResult>.CreateSuccess(result, "Bank transfer completed successfully.");
         }
 
         public async Task<InternalActionResult<bool>> UpdateAsync(BankTransaction model)
@@ -87,8 +72,8 @@ namespace CardApplicationAPI.Services.Implementations
                 return FactoryResponse<bool>.CreateFail("Transaction type is required.");
 
             normalizedType = normalizedType.ToUpperInvariant();
-            if (normalizedType != "OPENING" && normalizedType != "IN" && normalizedType != "OUT")
-                return FactoryResponse<bool>.CreateFail("Transaction type must be OPENING, IN, or OUT. Use the transfer endpoint for account transfers.");
+            if (normalizedType != "OPENING" && normalizedType != "IN" && normalizedType != "OUT" && normalizedType != "TRANSFER_IN" && normalizedType != "TRANSFER_OUT")
+                return FactoryResponse<bool>.CreateFail("Transaction type must be OPENING, IN, OUT, TRANSFER_IN, or TRANSFER_OUT.");
 
             if (model.Amount <= 0)
                 return FactoryResponse<bool>.CreateFail("Amount must be greater than zero.");

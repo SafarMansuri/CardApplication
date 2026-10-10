@@ -14,10 +14,10 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<BankAccount>>> GetAllAsync(PaginationParams pagination)
+        public async Task<InternalActionResult<IEnumerable<BankAccount>>> GetAllAsync()
         {
-            var result = await _repository.GetAllAsync(pagination);
-            return FactoryResponse<PaginatedResult<BankAccount>>.CreateSuccess(result, "Bank accounts retrieved successfully.");
+            var result = await _repository.GetAllAsync();
+            return FactoryResponse<IEnumerable<BankAccount>>.CreateSuccess(result, "Bank accounts retrieved successfully.");
         }
 
         public async Task<InternalActionResult<BankAccount?>> GetByIdAsync(int id)

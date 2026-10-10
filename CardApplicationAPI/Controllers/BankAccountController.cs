@@ -19,9 +19,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankAccount>>>> GetAll([FromQuery] PaginationParams pagination)
+        public async Task<ActionResult<InternalActionResult<IEnumerable<BankAccount>>>> GetAll()
         {
-            var result = await _service.GetAllAsync(pagination);
+            var result = await _service.GetAllAsync();
             return result;
         }
 

@@ -5,7 +5,7 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface IBankAccountService
     {
-        Task<InternalActionResult<PaginatedResult<BankAccount>>> GetAllAsync(PaginationParams pagination);
+        Task<InternalActionResult<IEnumerable<BankAccount>>> GetAllAsync();
         Task<InternalActionResult<BankAccount?>> GetByIdAsync(int id);
         Task<InternalActionResult<BankAccount>> AddAsync(BankAccount model);
         Task<InternalActionResult<bool>> UpdateAsync(BankAccount model);

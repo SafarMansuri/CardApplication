@@ -1,9 +1,9 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
-using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace CardApplicationAPI.Repositories.Implementations
 {
@@ -16,21 +16,15 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<BankTransaction>> GetAllAsync(PaginationParams pagination)
+        public async Task<IEnumerable<BankTransaction>> GetAllAsync()
         {
-            var result = await _context.BankTransactions
-                .AsNoTracking()
+            var entities = await _context.BankTransactions
                 .Include(x => x.Account)
                 .Include(x => x.RelatedAccount)
                 .OrderByDescending(x => x.TransactionDate)
-                .ThenByDescending(x => x.Id)
-                .ToPaginatedResultAsync(pagination);
+                .ToListAsync();
 
-            return new PaginatedResult<BankTransaction>
-            {
-                Items = result.Items.Select(MapToModel),
-                Pagination = result.Pagination
-            };
+            return entities.Select(MapToModel);
         }
 
         public async Task<BankTransaction?> GetByIdAsync(int id)
@@ -57,6 +51,8 @@ namespace CardApplicationAPI.Repositories.Implementations
 
         public async Task<BankTransaction> CreateAsync(BankTransaction model)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
             var accountExists = await _context.BankAccounts.AnyAsync(x => x.Id == model.AccountId);
             if (!accountExists)
                 throw new InvalidOperationException($"Bank account with ID {model.AccountId} not found");
@@ -68,70 +64,30 @@ namespace CardApplicationAPI.Repositories.Implementations
                     throw new InvalidOperationException($"Related bank account with ID {model.RelatedAccountId.Value} not found");
             }
 
+            if (model.TransactionType == "TRANSFER_OUT")
+                await EnsureSufficientBalanceForTransferOutAsync(model.AccountId, model.Amount);
+
             var entity = MapToEntity(model);
             entity.CreatedAt = DateTime.UtcNow;
             entity.UpdatedAt = DateTime.UtcNow;
 
             _context.BankTransactions.Add(entity);
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             return MapToModel(entity);
         }
 
-        public async Task<BankTransferResult?> TransferAsync(BankTransferRequest request)
-        {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
-            var accountIds = await _context.BankAccounts
-                .Where(x => x.Id == request.FromAccountId || x.Id == request.ToAccountId)
-                .Select(x => x.Id)
-                .ToListAsync();
-
-            if (!accountIds.Contains(request.FromAccountId) || !accountIds.Contains(request.ToAccountId))
-                return null;
-
-            var createdAt = DateTime.UtcNow;
-            var sourceEntity = new BankTransactionEntity
-            {
-                AccountId = request.FromAccountId,
-                RelatedAccountId = request.ToAccountId,
-                TransactionDate = request.TransactionDate,
-                TransactionType = "TRANSFER_OUT",
-                Amount = request.Amount,
-                ReferenceNo = request.ReferenceNo,
-                Remarks = request.Remarks,
-                CreatedAt = createdAt,
-                UpdatedAt = createdAt
-            };
-            var destinationEntity = new BankTransactionEntity
-            {
-                AccountId = request.ToAccountId,
-                RelatedAccountId = request.FromAccountId,
-                TransactionDate = request.TransactionDate,
-                TransactionType = "TRANSFER_IN",
-                Amount = request.Amount,
-                ReferenceNo = request.ReferenceNo,
-                Remarks = request.Remarks,
-                CreatedAt = createdAt,
-                UpdatedAt = createdAt
-            };
-
-            _context.BankTransactions.AddRange(sourceEntity, destinationEntity);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            return new BankTransferResult
-            {
-                SourceTransaction = MapToModel(sourceEntity),
-                DestinationTransaction = MapToModel(destinationEntity)
-            };
-        }
-
         public async Task<BankTransaction> UpdateAsync(BankTransaction model)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
             var existing = await _context.BankTransactions.FirstOrDefaultAsync(x => x.Id == model.Id);
             if (existing == null)
                 throw new InvalidOperationException($"Bank transaction with ID {model.Id} not found");
+
+            if (model.TransactionType == "TRANSFER_OUT")
+                await EnsureSufficientBalanceForTransferOutAsync(model.AccountId, model.Amount, model.Id);
 
             existing.AccountId = model.AccountId;
             existing.RelatedAccountId = model.RelatedAccountId;
@@ -143,6 +99,7 @@ namespace CardApplicationAPI.Repositories.Implementations
             existing.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return MapToModel(existing);
         }
 
@@ -159,6 +116,23 @@ namespace CardApplicationAPI.Repositories.Implementations
         public async Task<bool> ExistsAsync(int id)
         {
             return await _context.BankTransactions.AnyAsync(x => x.Id == id);
+        }
+
+        private async Task EnsureSufficientBalanceForTransferOutAsync(int accountId, decimal transferAmount, int? excludedTransactionId = null)
+        {
+            var transactions = _context.BankTransactions
+                .Where(x => x.AccountId == accountId);
+
+            if (excludedTransactionId.HasValue)
+                transactions = transactions.Where(x => x.Id != excludedTransactionId.Value);
+
+            var availableBalance = await transactions.SumAsync(x =>
+                x.TransactionType == "OPENING" || x.TransactionType == "IN" || x.TransactionType == "TRANSFER_IN"
+                    ? x.Amount
+                    : -x.Amount);
+
+            if (transferAmount > availableBalance)
+                throw new ArgumentException($"Insufficient balance for transfer. Available balance: {availableBalance:0.00}.");
         }
 
         private static BankTransaction MapToModel(BankTransactionEntity entity)

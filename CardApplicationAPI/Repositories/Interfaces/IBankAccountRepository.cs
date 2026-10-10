@@ -5,7 +5,7 @@ namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface IBankAccountRepository
     {
-        Task<PaginatedResult<BankAccount>> GetAllAsync(PaginationParams pagination);
+        Task<IEnumerable<BankAccount>> GetAllAsync();
         Task<BankAccount?> GetByIdAsync(int id);
         Task<BankAccount> CreateAsync(BankAccount model);
         Task<BankAccount> UpdateAsync(BankAccount model);

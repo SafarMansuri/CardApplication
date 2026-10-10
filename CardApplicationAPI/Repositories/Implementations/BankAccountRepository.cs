@@ -1,7 +1,6 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
-using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,19 +15,13 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<BankAccount>> GetAllAsync(PaginationParams pagination)
+        public async Task<IEnumerable<BankAccount>> GetAllAsync()
         {
-            var result = await _context.BankAccounts
-                .AsNoTracking()
+            var entities = await _context.BankAccounts
                 .OrderBy(x => x.AccountName)
-                .ThenBy(x => x.Id)
-                .ToPaginatedResultAsync(pagination);
+                .ToListAsync();
 
-            return new PaginatedResult<BankAccount>
-            {
-                Items = result.Items.Select(MapToModel),
-                Pagination = result.Pagination
-            };
+            return entities.Select(MapToModel);
         }
 
         public async Task<BankAccount?> GetByIdAsync(int id)

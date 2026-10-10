@@ -75,6 +75,8 @@ namespace CardApplicationAPI
             builder.Services.AddScoped<IBankAccountService, BankAccountService>();
             builder.Services.AddScoped<IBankTransactionRepository, BankTransactionRepository>();
             builder.Services.AddScoped<IBankTransactionService, BankTransactionService>();
+            builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+            builder.Services.AddScoped<IDashboardService, DashboardService>();
             builder.Services.AddSingleton<PasswordHasherHelper>();
 
             builder.Services.AddDbContext<AppDbContext>(options =>

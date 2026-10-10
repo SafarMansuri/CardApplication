@@ -1,6 +1,7 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,13 +16,19 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<BankAccount>> GetAllAsync()
+        public async Task<PaginatedResult<BankAccount>> GetAllAsync(PaginationParams pagination)
         {
-            var entities = await _context.BankAccounts
+            var page = await _context.BankAccounts
+                .AsNoTracking()
                 .OrderBy(x => x.AccountName)
-                .ToListAsync();
+                .ThenBy(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
 
-            return entities.Select(MapToModel);
+            return new PaginatedResult<BankAccount>
+            {
+                Items = page.Items.Select(MapToModel),
+                Pagination = page.Pagination
+            };
         }
 
         public async Task<BankAccount?> GetByIdAsync(int id)
@@ -62,8 +69,19 @@ namespace CardApplicationAPI.Repositories.Implementations
             var entity = await _context.BankAccounts.FirstOrDefaultAsync(x => x.Id == id);
             if (entity == null) return false;
 
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            await _context.BankTransactions
+                .Where(x => x.RelatedAccountId == id && x.AccountId != id)
+                .ExecuteUpdateAsync(update => update.SetProperty(x => x.RelatedAccountId, (int?)null));
+
+            await _context.BankTransactions
+                .Where(x => x.AccountId == id)
+                .ExecuteDeleteAsync();
+
             _context.BankAccounts.Remove(entity);
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return true;
         }
 
@@ -74,35 +92,47 @@ namespace CardApplicationAPI.Repositories.Implementations
 
         public async Task<decimal> GetTotalBalanceAsync()
         {
-            var summary = await GetAccountBalanceSummaryAsync();
-            return summary.Sum(x => x.CurrentBalance);
+            return await _context.BankTransactions
+                .AsNoTracking()
+                .SumAsync(x => (decimal?)(x.TransactionType == "OPENING" || x.TransactionType == "IN" || x.TransactionType == "TRANSFER_IN"
+                    ? x.Amount
+                    : -x.Amount)) ?? 0m;
         }
 
-        public async Task<IEnumerable<BankAccountBalanceSummary>> GetAccountBalanceSummaryAsync()
+        public async Task<PaginatedResult<BankAccountBalanceSummary>> GetAccountBalanceSummaryAsync(PaginationParams pagination)
         {
-            var accounts = await _context.BankAccounts
+            var accountPage = await _context.BankAccounts
                 .AsNoTracking()
                 .OrderBy(x => x.AccountName)
-                .ToListAsync();
+                .ThenBy(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
+            var accountIds = accountPage.Items.Select(x => x.Id).ToArray();
 
-            var summaries = new List<BankAccountBalanceSummary>();
+            var transactionSummaries = await _context.BankTransactions
+                .AsNoTracking()
+                .Where(x => accountIds.Contains(x.AccountId))
+                .GroupBy(x => x.AccountId)
+                .Select(group => new
+                {
+                    AccountId = group.Key,
+                    OpeningBalance = group.Sum(x => x.TransactionType == "OPENING" ? x.Amount : 0m),
+                    TotalIn = group.Sum(x => x.TransactionType == "IN" ? x.Amount : 0m),
+                    TotalOut = group.Sum(x => x.TransactionType == "OUT" ? x.Amount : 0m),
+                    TransferIn = group.Sum(x => x.TransactionType == "TRANSFER_IN" ? x.Amount : 0m),
+                    TransferOut = group.Sum(x => x.TransactionType == "TRANSFER_OUT" ? x.Amount : 0m)
+                })
+                .ToDictionaryAsync(x => x.AccountId);
 
-            foreach (var account in accounts)
+            var summaries = accountPage.Items.Select(account =>
             {
-                var transactions = await _context.BankTransactions
-                    .AsNoTracking()
-                    .Where(x => x.AccountId == account.Id)
-                    .ToListAsync();
+                transactionSummaries.TryGetValue(account.Id, out var totals);
+                var openingBalance = totals?.OpeningBalance ?? 0m;
+                var totalIn = totals?.TotalIn ?? 0m;
+                var totalOut = totals?.TotalOut ?? 0m;
+                var transferIn = totals?.TransferIn ?? 0m;
+                var transferOut = totals?.TransferOut ?? 0m;
 
-                var openingBalance = transactions.Where(x => x.TransactionType == "OPENING").Sum(x => x.Amount);
-                var totalIn = transactions.Where(x => x.TransactionType == "IN").Sum(x => x.Amount);
-                var totalOut = transactions.Where(x => x.TransactionType == "OUT").Sum(x => x.Amount);
-                var transferIn = transactions.Where(x => x.TransactionType == "TRANSFER_IN").Sum(x => x.Amount);
-                var transferOut = transactions.Where(x => x.TransactionType == "TRANSFER_OUT").Sum(x => x.Amount);
-
-                var currentBalance = openingBalance + totalIn + transferIn - totalOut - transferOut;
-
-                summaries.Add(new BankAccountBalanceSummary
+                return new BankAccountBalanceSummary
                 {
                     AccountId = account.Id,
                     AccountName = account.AccountName,
@@ -112,11 +142,15 @@ namespace CardApplicationAPI.Repositories.Implementations
                     TotalOut = totalOut,
                     TransferIn = transferIn,
                     TransferOut = transferOut,
-                    CurrentBalance = currentBalance
-                });
-            }
+                    CurrentBalance = openingBalance + totalIn + transferIn - totalOut - transferOut
+                };
+            }).ToList();
 
-            return summaries;
+            return new PaginatedResult<BankAccountBalanceSummary>
+            {
+                Items = summaries,
+                Pagination = accountPage.Pagination
+            };
         }
 
         private static BankAccount MapToModel(BankAccountEntity entity)

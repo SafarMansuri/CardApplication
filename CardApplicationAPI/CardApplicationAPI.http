@@ -296,7 +296,7 @@ Content-Type: application/json
 }
 
 ### Get all bank accounts
-GET {{CardApplicationAPI_HostAddress}}/api/BankAccount
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount?pageNumber=1&pageSize=20
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
@@ -306,7 +306,7 @@ Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
 ### Get per-account balances
-GET {{CardApplicationAPI_HostAddress}}/api/BankAccount/summary/accounts
+GET {{CardApplicationAPI_HostAddress}}/api/BankAccount/summary/accounts?pageNumber=1&pageSize=20
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
@@ -355,46 +355,43 @@ Content-Type: application/json
 	"remarks": "Vendor payment"
 }
 
-### Transfer money from one account to another
-# @name createTransferOut
-POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction
+### Transfer money atomically between the two test accounts
+# @name createBankTransfer
+POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction/transfer
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
 {
-	"accountId": {{createBankAccount1.response.body.$.resultObject.id}},
-	"relatedAccountId": {{createBankAccount2.response.body.$.resultObject.id}},
+	"fromAccountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"toAccountId": {{createBankAccount2.response.body.$.resultObject.id}},
 	"transactionDate": "2026-09-29T18:00:00",
-	"transactionType": "TRANSFER_OUT",
 	"amount": 15000.00,
 	"referenceNo": "TRF-001",
 	"remarks": "Transfer to business current account"
 }
 
-### Record the receiving side of the transfer
-# Transfers are represented by a TRANSFER_OUT and a matching TRANSFER_IN entry.
-# @name createTransferIn
-POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction
+### Verify an insufficient-balance transfer is rejected
+# The source starts with 500000 + 25000 - 12000 = 513000 before the successful transfer above.
+POST {{CardApplicationAPI_HostAddress}}/api/BankTransaction/transfer
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
 {
-	"accountId": {{createBankAccount2.response.body.$.resultObject.id}},
-	"relatedAccountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"fromAccountId": {{createBankAccount1.response.body.$.resultObject.id}},
+	"toAccountId": {{createBankAccount2.response.body.$.resultObject.id}},
 	"transactionDate": "2026-09-29T18:00:00",
-	"transactionType": "TRANSFER_IN",
-	"amount": 15000.00,
-	"referenceNo": "TRF-001",
-	"remarks": "Transfer received from main account"
+	"amount": 600000.00,
+	"referenceNo": "TRF-INSUFFICIENT",
+	"remarks": "Expected to fail without creating either ledger entry"
 }
 
 ### Get all transactions for the main bank account
-GET {{CardApplicationAPI_HostAddress}}/api/BankTransaction/account/{{createBankAccount1.response.body.$.resultObject.id}}
+GET {{CardApplicationAPI_HostAddress}}/api/BankTransaction/account/{{createBankAccount1.response.body.$.resultObject.id}}?pageNumber=1&pageSize=20
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
 ### Get all bank transactions
-GET {{CardApplicationAPI_HostAddress}}/api/BankTransaction
+GET {{CardApplicationAPI_HostAddress}}/api/BankTransaction?pageNumber=1&pageSize=20
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
@@ -451,13 +448,28 @@ Accept: application/json
 DELETE {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{bankInTransactionId}}
 Authorization: Bearer {{login.response.body.$.accessToken}}
 
-### Delete the test transfer-in transaction
-@transferInTransactionId = {{createTransferIn.response.body.$.resultObject.id}}
-DELETE {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{transferInTransactionId}}
+### Delete the source transfer ledger entry
+@transferSourceTransactionId = {{createBankTransfer.response.body.$.resultObject.sourceTransaction.id}}
+DELETE {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{transferSourceTransactionId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Delete the destination transfer ledger entry
+@transferDestinationTransactionId = {{createBankTransfer.response.body.$.resultObject.destinationTransaction.id}}
+DELETE {{CardApplicationAPI_HostAddress}}/api/BankTransaction/{{transferDestinationTransactionId}}
 Authorization: Bearer {{login.response.body.$.accessToken}}
 
 ### OPTIONAL CLEANUP: delete the second test account and its transactions
 # This cascades deletion to transactions belonging to this account.
 DELETE {{CardApplicationAPI_HostAddress}}/api/BankAccount/{{createBankAccount2.response.body.$.resultObject.id}}
 Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Get paginated cash ledger entries
+GET {{CardApplicationAPI_HostAddress}}/api/CashLedger?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Get paginated cash ledger entries by type
+GET {{CardApplicationAPI_HostAddress}}/api/CashLedger/type/IN?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
 

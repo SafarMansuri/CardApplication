@@ -1,6 +1,7 @@
 using CardApplicationAPI.Data.DBContext;
 using CardApplicationAPI.Data.Entities;
 using CardApplicationAPI.Models;
+using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -16,15 +17,21 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<IEnumerable<BankTransaction>> GetAllAsync()
+        public async Task<PaginatedResult<BankTransaction>> GetAllAsync(PaginationParams pagination)
         {
-            var entities = await _context.BankTransactions
+            var page = await _context.BankTransactions
+                .AsNoTracking()
                 .Include(x => x.Account)
                 .Include(x => x.RelatedAccount)
                 .OrderByDescending(x => x.TransactionDate)
-                .ToListAsync();
+                .ThenByDescending(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
 
-            return entities.Select(MapToModel);
+            return new PaginatedResult<BankTransaction>
+            {
+                Items = page.Items.Select(MapToModel),
+                Pagination = page.Pagination
+            };
         }
 
         public async Task<BankTransaction?> GetByIdAsync(int id)
@@ -37,16 +44,22 @@ namespace CardApplicationAPI.Repositories.Implementations
             return entity == null ? null : MapToModel(entity);
         }
 
-        public async Task<IEnumerable<BankTransaction>> GetByAccountIdAsync(int accountId)
+        public async Task<PaginatedResult<BankTransaction>> GetByAccountIdAsync(int accountId, PaginationParams pagination)
         {
-            var entities = await _context.BankTransactions
+            var page = await _context.BankTransactions
+                .AsNoTracking()
                 .Include(x => x.Account)
                 .Include(x => x.RelatedAccount)
                 .Where(x => x.AccountId == accountId)
                 .OrderByDescending(x => x.TransactionDate)
-                .ToListAsync();
+                .ThenByDescending(x => x.Id)
+                .ToPaginatedResultAsync(pagination);
 
-            return entities.Select(MapToModel);
+            return new PaginatedResult<BankTransaction>
+            {
+                Items = page.Items.Select(MapToModel),
+                Pagination = page.Pagination
+            };
         }
 
         public async Task<BankTransaction> CreateAsync(BankTransaction model)
@@ -76,6 +89,67 @@ namespace CardApplicationAPI.Repositories.Implementations
             await transaction.CommitAsync();
 
             return MapToModel(entity);
+        }
+
+        public async Task<BankTransferResult> TransferAsync(BankTransferRequest request)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+            if (request.FromAccountId == request.ToAccountId)
+                throw new ArgumentException("Source and destination accounts must be different.");
+
+            var sourceAccount = await _context.BankAccounts
+                .FirstOrDefaultAsync(x => x.Id == request.FromAccountId);
+            if (sourceAccount == null)
+                throw new KeyNotFoundException($"Source bank account with ID {request.FromAccountId} was not found.");
+
+            var destinationAccount = await _context.BankAccounts
+                .FirstOrDefaultAsync(x => x.Id == request.ToAccountId);
+            if (destinationAccount == null)
+                throw new KeyNotFoundException($"Destination bank account with ID {request.ToAccountId} was not found.");
+
+            await EnsureSufficientBalanceForTransferOutAsync(request.FromAccountId, request.Amount);
+
+            var createdAt = DateTime.UtcNow;
+            var sourceTransaction = new BankTransactionEntity
+            {
+                AccountId = sourceAccount.Id,
+                RelatedAccountId = destinationAccount.Id,
+                TransactionDate = request.TransactionDate,
+                TransactionType = "TRANSFER_OUT",
+                Amount = request.Amount,
+                ReferenceNo = request.ReferenceNo,
+                Remarks = request.Remarks,
+                CreatedAt = createdAt,
+                UpdatedAt = createdAt,
+                Account = sourceAccount,
+                RelatedAccount = destinationAccount
+            };
+
+            var destinationTransaction = new BankTransactionEntity
+            {
+                AccountId = destinationAccount.Id,
+                RelatedAccountId = sourceAccount.Id,
+                TransactionDate = request.TransactionDate,
+                TransactionType = "TRANSFER_IN",
+                Amount = request.Amount,
+                ReferenceNo = request.ReferenceNo,
+                Remarks = request.Remarks,
+                CreatedAt = createdAt,
+                UpdatedAt = createdAt,
+                Account = destinationAccount,
+                RelatedAccount = sourceAccount
+            };
+
+            _context.BankTransactions.AddRange(sourceTransaction, destinationTransaction);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return new BankTransferResult
+            {
+                SourceTransaction = MapToModel(sourceTransaction),
+                DestinationTransaction = MapToModel(destinationTransaction)
+            };
         }
 
         public async Task<BankTransaction> UpdateAsync(BankTransaction model)

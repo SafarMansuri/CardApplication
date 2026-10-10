@@ -19,9 +19,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<BankAccount>>>> GetAll()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankAccount>>>> GetAll([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetAllAsync();
+            var result = await _service.GetAllAsync(pagination);
             return result;
         }
 
@@ -40,9 +40,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet("summary/accounts")]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<BankAccountBalanceSummary>>>> GetBalanceSummary()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankAccountBalanceSummary>>>> GetBalanceSummary([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetBalanceSummaryAsync();
+            var result = await _service.GetBalanceSummaryAsync(pagination);
             return result;
         }
 

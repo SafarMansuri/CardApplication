@@ -19,9 +19,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<BankTransaction>>>> GetAll()
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetAll([FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetAllAsync();
+            var result = await _service.GetAllAsync(pagination);
             return result;
         }
 
@@ -33,9 +33,9 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet("account/{accountId:int}")]
-        public async Task<ActionResult<InternalActionResult<IEnumerable<BankTransaction>>>> GetByAccountId(int accountId)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetByAccountId(int accountId, [FromQuery] PaginationParams pagination)
         {
-            var result = await _service.GetByAccountIdAsync(accountId);
+            var result = await _service.GetByAccountIdAsync(accountId, pagination);
             return result;
         }
 
@@ -44,6 +44,13 @@ namespace CardApplicationAPI.Controllers
         {
             var result = await _service.AddAsync(model);
             return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
+        }
+
+        [HttpPost("transfer")]
+        public async Task<ActionResult<InternalActionResult<BankTransferResult>>> Transfer([FromBody] BankTransferRequest request)
+        {
+            var result = await _service.TransferAsync(request);
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpPut("{id:int}")]

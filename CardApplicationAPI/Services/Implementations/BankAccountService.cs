@@ -14,10 +14,10 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<IEnumerable<BankAccount>>> GetAllAsync()
+        public async Task<InternalActionResult<PaginatedResult<BankAccount>>> GetAllAsync(PaginationParams pagination)
         {
-            var result = await _repository.GetAllAsync();
-            return FactoryResponse<IEnumerable<BankAccount>>.CreateSuccess(result, "Bank accounts retrieved successfully.");
+            var result = await _repository.GetAllAsync(pagination);
+            return FactoryResponse<PaginatedResult<BankAccount>>.CreateSuccess(result, "Bank accounts retrieved successfully.");
         }
 
         public async Task<InternalActionResult<BankAccount?>> GetByIdAsync(int id)
@@ -77,10 +77,10 @@ namespace CardApplicationAPI.Services.Implementations
             return FactoryResponse<decimal>.CreateSuccess(result, "Total bank balance retrieved successfully.");
         }
 
-        public async Task<InternalActionResult<IEnumerable<BankAccountBalanceSummary>>> GetBalanceSummaryAsync()
+        public async Task<InternalActionResult<PaginatedResult<BankAccountBalanceSummary>>> GetBalanceSummaryAsync(PaginationParams pagination)
         {
-            var result = await _repository.GetAccountBalanceSummaryAsync();
-            return FactoryResponse<IEnumerable<BankAccountBalanceSummary>>.CreateSuccess(result, "Bank balances retrieved successfully.");
+            var result = await _repository.GetAccountBalanceSummaryAsync(pagination);
+            return FactoryResponse<PaginatedResult<BankAccountBalanceSummary>>.CreateSuccess(result, "Bank balances retrieved successfully.");
         }
     }
 }

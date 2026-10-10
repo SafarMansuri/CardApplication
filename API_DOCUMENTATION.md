@@ -372,7 +372,7 @@ Base route: /api/CashLedger
 
 ### GET /api/CashLedger
 
-Get all cash ledger entries.
+Get a paginated list of cash ledger entries, ordered by transaction date and ID ascending. Accepts `pageNumber` (optional, default `1`) and `pageSize` (optional, default `10`, range `1`-`100`). The `resultObject` contains `items` and `pagination` metadata.
 
 ### GET /api/CashLedger/{id}
 
@@ -380,7 +380,7 @@ Get single cash ledger entry.
 
 ### GET /api/CashLedger/type/{transactionType}
 
-Get entries by transaction type.
+Get a paginated list of entries by transaction type, ordered by transaction date and ID ascending. Accepts `pageNumber` and `pageSize` with the same defaults and limits as `GET /api/CashLedger`.
 
 Valid values:
 
@@ -443,7 +443,7 @@ Bank accounts are stored as rows, so adding another account does not require a d
 
 ### GET /api/BankAccount
 
-List all bank accounts, including inactive accounts. The response is not paginated.
+List bank accounts, including inactive accounts, ordered by account name and ID. Accepts `pageNumber` (optional, default `1`) and `pageSize` (optional, default `10`, range `1`-`100`). The `resultObject` contains `items` and `pagination` metadata.
 
 ### GET /api/BankAccount/{id}
 
@@ -486,7 +486,7 @@ Return one decimal value containing the total current balance across all bank ac
 
 ### GET /api/BankAccount/summary/accounts
 
-Return each account's opening, incoming, outgoing, transfer-in, transfer-out, and current balances. Balances are calculated from transaction rows; no balance columns are maintained on the account.
+Return a paginated list of accounts with opening, incoming, outgoing, transfer-in, transfer-out, and current balances. Accepts `pageNumber` (optional, default `1`) and `pageSize` (optional, default `10`, range `1`-`100`). Balances are calculated from transaction rows; no balance columns are maintained on the account.
 
 ```text
 CurrentBalance = OpeningBalance + TotalIn + TransferIn - TotalOut - TransferOut
@@ -500,11 +500,11 @@ The aggregate assumes all accounts use the same currency. There is no currency c
 
 Base route: `/api/BankTransaction`
 
-Bank transactions record all account movements. Valid `transactionType` values are `OPENING`, `IN`, `OUT`, `TRANSFER_IN`, and `TRANSFER_OUT`; `amount` must be greater than zero. `accountId` is required. `relatedAccountId`, `referenceNo`, and `remarks` are optional.
+Bank transactions record all account movements. `amount` must be greater than zero. The standard transaction endpoint accepts `OPENING`, `IN`, `OUT`, `TRANSFER_IN`, or `TRANSFER_OUT`; for a managed account-to-account transfer, use the atomic transfer endpoint below. `accountId` is required for standard transactions. `relatedAccountId`, `referenceNo`, and `remarks` are optional.
 
 ### GET /api/BankTransaction
 
-List all transactions, newest transaction date first. The response is not paginated.
+List transactions, newest transaction date and ID first. Accepts `pageNumber` (optional, default `1`) and `pageSize` (optional, default `10`, range `1`-`100`). The `resultObject` contains `items` and `pagination` metadata.
 
 ### GET /api/BankTransaction/{id}
 
@@ -512,7 +512,7 @@ Get one transaction by ID, including its account and optional related account de
 
 ### GET /api/BankTransaction/account/{accountId}
 
-List transactions belonging to the specified account, newest transaction date first.
+List transactions belonging to the specified account, newest transaction date and ID first. Accepts `pageNumber` and `pageSize` with the same defaults and limits as `GET /api/BankTransaction`.
 
 ### POST /api/BankTransaction
 
@@ -530,7 +530,24 @@ Create a movement for one account.
 }
 ```
 
-For an outgoing payment use `OUT`; for opening funds use `OPENING`. The API does not expose a single atomic transfer operation: record a transfer as a `TRANSFER_OUT` for the source account and a matching `TRANSFER_IN` for the destination account, setting each entry's `relatedAccountId` to the other account. Submit both entries and use the same reference number to keep them associated. If the second request fails, the first entry is not automatically rolled back.
+For an outgoing payment use `OUT`; for opening funds use `OPENING`. Use the dedicated transfer endpoint for movements between managed bank accounts so both sides are recorded atomically.
+
+### POST /api/BankTransaction/transfer
+
+Transfer money between two managed bank accounts in one request. The API verifies both accounts exist, rejects transfers to the same account, and rejects amounts greater than the source account's available balance. It creates a `TRANSFER_OUT` entry for the source and a matching `TRANSFER_IN` entry for the destination, with reciprocal `relatedAccountId` values. Both entries share the amount, date, reference, and remarks and are saved in one database transaction.
+
+```json
+{
+  "fromAccountId": 1,
+  "toAccountId": 2,
+  "transactionDate": "2026-09-29T14:00:00",
+  "amount": 1000.00,
+  "referenceNo": "TRF-001",
+  "remarks": "Move funds to savings"
+}
+```
+
+The response `resultObject` contains `sourceTransaction` and `destinationTransaction`. Invalid account IDs or a same-account transfer return HTTP 400; missing accounts return HTTP 404; insufficient balance returns HTTP 400. If either ledger row fails to save, neither row is committed.
 
 ### PUT /api/BankTransaction/{id}
 

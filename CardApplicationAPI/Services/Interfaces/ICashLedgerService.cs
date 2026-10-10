@@ -5,9 +5,9 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface ICashLedgerService
     {
-        Task<InternalActionResult<IEnumerable<CashLedger>>> GetAllAsync();
+        Task<InternalActionResult<PaginatedResult<CashLedger>>> GetAllAsync(PaginationParams pagination);
         Task<InternalActionResult<CashLedger?>> GetByIdAsync(long id);
-        Task<InternalActionResult<IEnumerable<CashLedger>>> GetByTypeAsync(string transactionType);
+        Task<InternalActionResult<PaginatedResult<CashLedger>>> GetByTypeAsync(string transactionType, PaginationParams pagination);
         Task<InternalActionResult<CashLedger>> AddAsync(CashLedger model);
         Task<InternalActionResult<bool>> UpdateAsync(CashLedger model);
         Task<InternalActionResult<bool>> DeleteAsync(long id);

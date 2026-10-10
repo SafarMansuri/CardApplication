@@ -5,14 +5,14 @@ namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface IBankAccountRepository
     {
-        Task<IEnumerable<BankAccount>> GetAllAsync();
+        Task<PaginatedResult<BankAccount>> GetAllAsync(PaginationParams pagination);
         Task<BankAccount?> GetByIdAsync(int id);
         Task<BankAccount> CreateAsync(BankAccount model);
         Task<BankAccount> UpdateAsync(BankAccount model);
         Task<bool> DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
         Task<decimal> GetTotalBalanceAsync();
-        Task<IEnumerable<BankAccountBalanceSummary>> GetAccountBalanceSummaryAsync();
+        Task<PaginatedResult<BankAccountBalanceSummary>> GetAccountBalanceSummaryAsync(PaginationParams pagination);
     }
 }
 

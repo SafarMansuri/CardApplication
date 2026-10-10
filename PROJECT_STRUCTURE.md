@@ -216,7 +216,10 @@ The current business areas are:
 1. **Authentication**: credentials, JWT access tokens, refresh-token rotation, and logout.
 2. **Users**: user records, roles, password hashing, and user administration.
 3. **Card information**: card record CRUD and model/entity mapping.
-4. **Payment information**: a database entity and context registration exist, but no public controller or service currently exposes this area.
+4. **Payment information**: one lifetime summary per party, derived from CardInfo, with paid/pending balances and an Admin/Master settlement action.
+5. **Stock and stock payments**: stock CRUD plus automatically synchronized read-only payment summaries.
+6. **Cash and bank ledgers**: cash movements, dynamic bank accounts, account transactions, and atomic transfers.
+7. **Dashboard**: combined financial/inventory totals including pending party payments.
 
 ## Authentication and Security
 
@@ -292,7 +295,8 @@ Keep the directory tree and summaries concise. Do not add secrets, generated bui
 ## Current Limitations and Follow-up Areas
 
 - No automated test project is currently present.
-- `PaymentInfoEntity` is registered in the context but has no API workflow.
+- Party identity is currently based on normalized `PartyName` text rather than a dedicated Party table.
+- PaymentInfo retains only the latest settlement audit on its lifetime summary; it is not a separate payment-history ledger.
 - Several response and error behaviors are implemented directly in controllers and services rather than through dedicated DTOs and centralized validation.
 - User and card update methods accept broad domain models, including server-managed fields.
 - The API has no explicit version prefix such as `/api/v1`.

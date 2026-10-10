@@ -45,6 +45,8 @@ namespace CardApplicationAPI.Repositories.Implementations
                 .SumAsync(x => (decimal?)x.Profit, cancellationToken) ?? 0m;
             var totalStockItems = await _context.StockItems
                 .CountAsync(x => x.InOut != null && x.InOut.ToUpper() == "IN", cancellationToken);
+            var totalPendingPartyPayment = await _context.PaymentInfo
+                .SumAsync(x => (decimal?)x.PendingAmount, cancellationToken) ?? 0m;
 
             var totalBankBalance = bankTransactions == null
                 ? 0m
@@ -59,7 +61,8 @@ namespace CardApplicationAPI.Repositories.Implementations
                 totalAvailableCash,
                 totalSwipes,
                 totalPartyProfit,
-                totalStockItems);
+                totalStockItems,
+                totalPendingPartyPayment);
         }
     }
 }

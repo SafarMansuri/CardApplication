@@ -5,6 +5,7 @@ namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface IPaymentInfoRepository
     {
-        Task<PaginatedResult<PaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName);
+        Task<PaginatedResult<PaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName, string? status);
+        Task<PaymentInfo?> MarkPaidAsync(int id, int paidByUserId, string paidByUsername);
     }
 }

@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	  <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+    <DefaultItemExcludes>$(DefaultItemExcludes);CardApplicationAPI.Tests/**</DefaultItemExcludes>
 
   </PropertyGroup>
 

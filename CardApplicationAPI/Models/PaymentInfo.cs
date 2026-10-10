@@ -10,6 +10,12 @@ namespace CardApplicationAPI.Models
         public decimal? TotalAmount { get; set; }
         public decimal? Profit { get; set; }
         public decimal? TotalProfit { get; set; }
+        public decimal PaidAmount { get; set; }
+        public decimal PendingAmount { get; set; }
+        public string PaymentStatus { get; set; } = "Pending";
+        public DateTime? LastPaidAt { get; set; }
+        public int? LastPaidByUserId { get; set; }
+        public string? LastPaidByUsername { get; set; }
         public bool LimitUsed { get; set; }
         public string CardName { get; set; } = string.Empty;
         public string? Merchant { get; set; }

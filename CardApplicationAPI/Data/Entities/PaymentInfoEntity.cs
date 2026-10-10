@@ -27,6 +27,22 @@ namespace CardApplicationAPI.Data.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal? TotalProfit { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PaidAmount { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal PendingAmount { get; set; }
+
+        [Required, MaxLength(20)]
+        public string PaymentStatus { get; set; } = "Pending";
+
+        public DateTime? LastPaidAt { get; set; }
+
+        public int? LastPaidByUserId { get; set; }
+
+        [MaxLength(100)]
+        public string? LastPaidByUsername { get; set; }
+
         public bool LimitUsed { get; set; }
 
         [Required, MaxLength(100)]

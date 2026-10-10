@@ -5,5 +5,6 @@ namespace CardApplicationAPI.Models
         decimal TotalAvailableCash,
         int TotalSwipes,
         decimal TotalPartyProfit,
-        int TotalStockItems);
+        int TotalStockItems,
+        decimal TotalPendingPartyPayment);
 }

@@ -1,4 +1,4 @@
-@CardApplicationAPI_HostAddress = https://smenterprise101.runasp.net
+@CardApplicationAPI_HostAddress = https://localhost:7154/
 @username = Master
 @password = Master@123
 
@@ -8,133 +8,173 @@ POST {{CardApplicationAPI_HostAddress}}/api/Auth/login
 Content-Type: application/json
 
 {
-	"username": "master",
-	"password": "Master@123"
+	"username": "safar",
+	"password": "Safar@123"
 }
 
-### Create first CardInfo for Party A
+### PARTY PAYMENT SETTLEMENT TEST - create Party A swipe 1
+# Use a test database or change the unique party/card values before rerunning this persistent scenario.
 # @name createPartyAFirst
 POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
 {
-	"cardName": "SBI Business",
-	"cardNumber": "SBI-TEST-001",
-	"imei": "IMEI-A-001",
-	"partyName": "HTTP Test Party A",
-	"deduction": 500.00,
-	"profit": 75.00,
-	"date": "2026-09-20T10:00:00",
-	"pos": "Amount plus hisaab",
-	"model": "Model Alpha",
-	"merchant": "Merchant North",
-	"swipePerson": "Asha",
-	"remarks": "First party A test swipe",
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-001",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 100.00,
+	"profit": 10.00,
+	"date": "2026-10-10T10:00:00Z",
+	"remarks": "First unsettled swipe",
 	"limitUsed": false,
-	"additionalInfo": "HTTP test data",
 	"bankName": "SBI"
 }
 
-### Create second CardInfo for Party A (same deduction and profit)
+### Create Party A swipe 2 with a different amount
 # @name createPartyASecond
 POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
 {
-	"cardName": "SBI Business",
-	"cardNumber": "SBI-TEST-002",
-	"imei": "IMEI-A-002",
-	"partyName": "HTTP Test Party A",
-	"deduction": 500.00,
-	"profit": 75.00,
-	"date": "2026-09-21T11:30:00",
-	"pos": "Amount only",
-	"model": "Model Beta",
-	"merchant": "Merchant East",
-	"swipePerson": "Ravi",
-	"remarks": "Second party A test swipe",
-	"limitUsed": true,
-	"additionalInfo": "HTTP test data",
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-002",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 250.00,
+	"profit": 30.00,
+	"date": "2026-10-10T11:00:00Z",
+	"remarks": "Second unsettled swipe",
+	"limitUsed": false,
 	"bankName": "SBI"
 }
 
-### Create a separate CardInfo record for Party B
+### Create pending Party B for dashboard comparison
 # @name createPartyB
 POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
 {
-	"cardName": "HDFC Platinum",
-	"cardNumber": "HDFC-TEST-001",
-	"imei": "IMEI-B-001",
-	"partyName": "HTTP Test Party B",
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-B-20261010-001",
+	"partyName": "HTTP Settlement Party B 20261010",
 	"deduction": 1200.00,
 	"profit": 180.00,
-	"date": "2026-09-22T14:15:00",
-	"pos": "Amount only",
-	"model": "Model Gamma",
-	"merchant": "Merchant South",
-	"swipePerson": "Neha",
-	"remarks": "Separate party test swipe",
+	"date": "2026-10-10T12:00:00Z",
+	"remarks": "Party B remains pending",
 	"limitUsed": false,
-	"additionalInfo": "HTTP test data",
 	"bankName": "HDFC"
 }
 
-### Get paginated PaymentInfo grid
-# @name paymentGrid
-GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=20
+### Verify Party A initial summary and capture its ID
+# Expected: swipeCount=2, totalAmount=350, totalProfit=40, paidAmount=0,
+# pendingAmount=350, paymentStatus=Pending.
+# @name partyASummary
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
-### Expected Party A summary after the three creates
-# Party A: swipeCount=2, swipeAmount=500, totalAmount=1000, profit=75, totalProfit=150
-# Other display fields come from Party A's latest CardInfo row.
-GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Test%20Party%20A
-Authorization: Bearer {{login.response.body.$.accessToken}}
-Accept: application/json
-
-### Expected Party B summary
-# Party B: swipeCount=1, swipeAmount=1200, totalAmount=1200, profit=180, totalProfit=180
-GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Test%20Party%20B
-Authorization: Bearer {{login.response.body.$.accessToken}}
-Accept: application/json
-
-### Update the second Party A CardInfo record and recheck its summary
-# Replace {partyASecondId} with the id returned by createPartyASecond.
-# Keep deduction/profit equal across Party A records; for example, change both records to verify new totals.
+@partyASummaryId = {{partyASummary.response.body.$.resultObject.items[0].id}}
+@partyAFirstId = {{createPartyAFirst.response.body.$.resultObject.id}}
 @partyASecondId = {{createPartyASecond.response.body.$.resultObject.id}}
+
+### Verify dashboard before payment
+# This scenario contributes 1550 to totalPendingPartyPayment (350 Party A + 1200 Party B).
+GET {{CardApplicationAPI_HostAddress}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify Pending filter
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=20&status=Pending
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify Paid filter before Party A settlement
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=20&status=Paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Invalid status must return HTTP 400
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=20&status=Unknown
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Mark all currently pending Party A swipes paid
+# Expected: paidAmount=350, pendingAmount=0, paymentStatus=Paid, lastPaidAt and lastPaidBy populated.
+PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify paid Party A lifetime summary
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010&status=Paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify dashboard after first payment
+# This scenario now contributes only Party B's 1200 pending amount.
+GET {{CardApplicationAPI_HostAddress}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Settled swipe update must return HTTP 409
 PUT {{CardApplicationAPI_HostAddress}}/api/CardInfo/{{partyASecondId}}
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
 {
 	"id": {{partyASecondId}},
-	"cardName": "SBI Business",
-	"cardNumber": "SBI-TEST-002",
-	"imei": "IMEI-A-002",
-	"partyName": "HTTP Test Party A",
-	"deduction": 500.00,
-	"profit": 75.00,
-	"date": "2026-09-21T11:30:00",
-	"pos": "Amount only",
-	"model": "Model Beta Updated",
-	"merchant": "Merchant East Updated",
-	"swipePerson": "Ravi",
-	"remarks": "Updated party A test swipe",
-	"limitUsed": true,
-	"additionalInfo": "HTTP test data updated",
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-002",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 999.00,
+	"profit": 30.00,
+	"date": "2026-10-10T11:00:00Z",
+	"limitUsed": false,
 	"bankName": "SBI"
 }
 
-### Delete one Party A CardInfo record and recheck the summary
-# Replace {partyASecondId} with the id returned by createPartyASecond.
-# Party A should now have swipeCount=1, totalAmount=500, totalProfit=75.
-DELETE {{CardApplicationAPI_HostAddress}}/api/CardInfo/{{partyASecondId}}
+### Settled swipe delete must return HTTP 409
+DELETE {{CardApplicationAPI_HostAddress}}/api/CardInfo/{{partyAFirstId}}
 Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Repeating Mark Paid without new pending swipes must return HTTP 409
+PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Create a new Party A swipe after payment
+# @name createPartyAThird
+POST {{CardApplicationAPI_HostAddress}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+	"cardName": "Settlement Test Card",
+	"cardNumber": "SETTLE-A-20261010-003",
+	"partyName": "HTTP Settlement Party A 20261010",
+	"deduction": 75.00,
+	"profit": 5.00,
+	"date": "2026-10-10T13:00:00Z",
+	"remarks": "New pending cycle",
+	"limitUsed": false,
+	"bankName": "SBI"
+}
+
+### Verify reopened lifetime summary
+# Expected: swipeCount=3, totalAmount=425, totalProfit=45, paidAmount=350,
+# pendingAmount=75, paymentStatus=Pending.
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Verify dashboard includes Party A's new pending 75
+GET {{CardApplicationAPI_HostAddress}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Settle Party A's second payment cycle
+PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Final Party A check: paidAmount=425, pendingAmount=0, status=Paid
+GET {{CardApplicationAPI_HostAddress}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName=HTTP%20Settlement%20Party%20A%2020261010
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### Optional role test: login as an existing normal User and expect HTTP 403 here
+# @normalUserToken = paste a User-role JWT here
+# PATCH {{CardApplicationAPI_HostAddress}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+# Authorization: Bearer {{normalUserToken}}
 
 ### Stock summary test: create stock item with IN direction
 # IN means stock is coming in, so the payment summary should match that stock item.

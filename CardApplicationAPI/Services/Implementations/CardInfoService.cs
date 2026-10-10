@@ -26,7 +26,7 @@ namespace CardApplicationAPI.Services.Implementations
             if (user == null)
                 return FactoryResponse<CardInfo?>.CreateFail("Card info not found.", ApplicationActionStatusCodes.NotFound);
 
-            return FactoryResponse<CardInfo?>.CreateSuccess(user, "User retrieved successfully.");
+            return FactoryResponse<CardInfo?>.CreateSuccess(user, "Card info retrieved successfully.");
         }
 
         public async Task<InternalActionResult<CardInfo>> AddAsync(CardInfo user)
@@ -35,7 +35,7 @@ namespace CardApplicationAPI.Services.Implementations
             if (validation != null)
                 return FactoryResponse<CardInfo>.CreateFail(validation, ApplicationActionStatusCodes.ValidationFailed);
             var created = await _repository.CreateAsync(user);
-            return FactoryResponse<CardInfo>.CreateSuccess(created, "User added successfully.");
+            return FactoryResponse<CardInfo>.CreateSuccess(created, "Card info added successfully.");
         }
 
         public async Task<InternalActionResult<bool>> UpdateAsync(CardInfo user)
@@ -43,17 +43,38 @@ namespace CardApplicationAPI.Services.Implementations
             var validation = Validate(user);
             if (validation != null)
                 return FactoryResponse<bool>.CreateFail(validation, ApplicationActionStatusCodes.ValidationFailed);
-            if (!await _repository.ExistsAsync(user.Id))
+            var existing = await _repository.GetByIdAsync(user.Id);
+            if (existing == null)
                 return FactoryResponse<bool>.CreateFail("Card info not found.", ApplicationActionStatusCodes.NotFound);
-            await _repository.UpdateAsync(user);
-            return FactoryResponse<bool>.CreateSuccess(true, "User updated successfully.");
+            if (existing.IsSettled)
+                return FactoryResponse<bool>.CreateFail("Settled card info cannot be updated.", ApplicationActionStatusCodes.Conflict);
+            try
+            {
+                await _repository.UpdateAsync(user);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return FactoryResponse<bool>.CreateFail(ex.Message, ApplicationActionStatusCodes.Conflict);
+            }
+            return FactoryResponse<bool>.CreateSuccess(true, "Card info updated successfully.");
         }
 
         public async Task<InternalActionResult<bool>> DeleteAsync(int id)
         {
-            if (!await _repository.DeleteAsync(id))
+            var existing = await _repository.GetByIdAsync(id);
+            if (existing == null)
                 return FactoryResponse<bool>.CreateFail("Card info not found.", ApplicationActionStatusCodes.NotFound);
-            return FactoryResponse<bool>.CreateSuccess(true, "User deleted successfully.");
+            if (existing.IsSettled)
+                return FactoryResponse<bool>.CreateFail("Settled card info cannot be deleted.", ApplicationActionStatusCodes.Conflict);
+            try
+            {
+                await _repository.DeleteAsync(id);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return FactoryResponse<bool>.CreateFail(ex.Message, ApplicationActionStatusCodes.Conflict);
+            }
+            return FactoryResponse<bool>.CreateSuccess(true, "Card info deleted successfully.");
         }
 
         private static string? Validate(CardInfo model)

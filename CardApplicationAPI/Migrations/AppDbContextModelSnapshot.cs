@@ -17,10 +17,102 @@ namespace CardApplicationAPI.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.10")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.BankAccountEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("AccountNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountName")
+                        .IsUnique();
+
+                    b.ToTable("BankAccounts");
+                });
+
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.BankTransactionEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("RelatedAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("RelatedAccountId");
+
+                    b.ToTable("BankTransactions", t =>
+                        {
+                            t.HasCheckConstraint("CK_BankTransaction_Amount", "[Amount] > 0");
+
+                            t.HasCheckConstraint("CK_BankTransaction_TransactionType", "[TransactionType] IN ('OPENING', 'IN', 'OUT', 'TRANSFER_IN', 'TRANSFER_OUT')");
+                        });
+                });
 
             modelBuilder.Entity("CardApplicationAPI.Data.Entities.CardInfoEntity", b =>
                 {
@@ -48,10 +140,6 @@ namespace CardApplicationAPI.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("IMEI")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<DateTime>("Createdat")
                         .HasColumnType("datetime2");
 
@@ -60,6 +148,13 @@ namespace CardApplicationAPI.Migrations
 
                     b.Property<decimal?>("Deduction")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("IMEI")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsSettled")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Merchant")
                         .HasMaxLength(200)
@@ -83,6 +178,9 @@ namespace CardApplicationAPI.Migrations
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("SettledAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("SwipePerson")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
@@ -96,6 +194,50 @@ namespace CardApplicationAPI.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CardInfo");
+                });
+
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.CashLedgerEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CashLedger", t =>
+                        {
+                            t.HasCheckConstraint("CK_CashLedger_Amount", "[Amount] > 0");
+
+                            t.HasCheckConstraint("CK_CashLedger_TransactionType", "[TransactionType] IN ('OPENING', 'IN', 'OUT')");
+                        });
                 });
 
             modelBuilder.Entity("CardApplicationAPI.Data.Entities.PaymentInfoEntity", b =>
@@ -114,43 +256,64 @@ namespace CardApplicationAPI.Migrations
                     b.Property<DateTime>("Createdat")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("PartyName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<decimal?>("SwipeAmount")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal?>("Profit")
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<DateTime?>("LastPaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LastPaidByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastPaidByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("LimitUsed")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Merchant")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<decimal>("PaidAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PartyName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("PendingAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("Profit")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Remarks")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<decimal?>("SwipeAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("SwipeCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("SwipePerson")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
 
                     b.Property<decimal?>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal?>("TotalProfit")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<bool>("LimitUsed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SwipePerson")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
 
                     b.Property<DateTime>("Updatedat")
                         .HasColumnType("datetime2");
@@ -160,7 +323,186 @@ namespace CardApplicationAPI.Migrations
                     b.HasIndex("PartyName")
                         .IsUnique();
 
-                    b.ToTable("PaymentInfo");
+                    b.ToTable("PaymentInfo", t =>
+                        {
+                            t.HasCheckConstraint("CK_PaymentInfo_Amounts", "[PaidAmount] >= 0 AND [PendingAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_PaymentInfo_PaymentStatus", "[PaymentStatus] IN ('Pending', 'Paid')");
+                        });
+                });
+
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.RefreshTokenEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReplacedByToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.StockItemEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("AMOUNT");
+
+                    b.Property<string>("Colour")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("COLOUR");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("GstMrp")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("GST/MRP");
+
+                    b.Property<string>("Imei")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("IMEI");
+
+                    b.Property<DateTime?>("InDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("IN DATE");
+
+                    b.Property<string>("InOut")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("IN/OUT");
+
+                    b.Property<string>("Model")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("MODEL");
+
+                    b.Property<string>("No")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("NO");
+
+                    b.Property<DateTime?>("OutDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("OUT DATE");
+
+                    b.Property<string>("PartyName")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("PARTY NAME");
+
+                    b.Property<string>("Payment")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("PAYMENT");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("REMARKS");
+
+                    b.Property<string>("SoldTo")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("SOLD TO");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("STATUS");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StockItems");
+                });
+
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.StockPaymentInfoEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountName")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("ACCOUNT NAME");
+
+                    b.Property<string>("AccountNo")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("ACCOUNT NO");
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("AMOUNT");
+
+                    b.Property<string>("Bank")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("BANK");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("Date")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("DATE");
+
+                    b.Property<string>("Ifsc")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("IFSC");
+
+                    b.Property<string>("InOut")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("IN/OUT");
+
+                    b.Property<string>("No")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("NO");
+
+                    b.Property<string>("PartyName")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("PARTY NAME");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("REMARKS");
+
+                    b.Property<int>("StockItemId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StockItemId")
+                        .IsUnique();
+
+                    b.ToTable("StockPaymentInfo");
                 });
 
             modelBuilder.Entity("CardApplicationAPI.Data.Entities.UserEntity", b =>
@@ -210,36 +552,43 @@ namespace CardApplicationAPI.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("CardApplicationAPI.Data.Entities.RefreshTokenEntity", b =>
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.BankTransactionEntity", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.HasOne("CardApplicationAPI.Data.Entities.BankAccountEntity", "Account")
+                        .WithMany("Transactions")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.HasOne("CardApplicationAPI.Data.Entities.BankAccountEntity", "RelatedAccount")
+                        .WithMany()
+                        .HasForeignKey("RelatedAccountId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    b.Navigation("Account");
 
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
+                    b.Navigation("RelatedAccount");
+                });
 
-                    b.Property<string>("ReplacedByToken")
-                        .HasColumnType("nvarchar(max)");
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.StockPaymentInfoEntity", b =>
+                {
+                    b.HasOne("CardApplicationAPI.Data.Entities.StockItemEntity", "StockItem")
+                        .WithMany("PaymentInfo")
+                        .HasForeignKey("StockItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("datetime2");
+                    b.Navigation("StockItem");
+                });
 
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.BankAccountEntity", b =>
+                {
+                    b.Navigation("Transactions");
+                });
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("RefreshTokens");
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.StockItemEntity", b =>
+                {
+                    b.Navigation("PaymentInfo");
                 });
 #pragma warning restore 612, 618
         }

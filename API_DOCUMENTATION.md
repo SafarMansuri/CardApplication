@@ -233,30 +233,31 @@ Creating, updating, or deleting CardInfo recalculates the corresponding party's 
 
 Base route: /api/PaymentInfo
 
-PaymentInfo is a read-only, party-level summary. Do not POST, PUT, or DELETE PaymentInfo directly; its rows are maintained automatically from CardInfo changes. There is one summary row per PartyName, and different CardInfo entries for the same party contribute to that row.
+PaymentInfo is a lifetime party-level summary maintained automatically from CardInfo. There is one row per PartyName. New swipes begin pending; an Admin or Master can settle all currently pending swipes. Settled CardInfo rows cannot be updated or deleted.
 
 ### GET /api/PaymentInfo
 
-Get the paginated summaries used by the payment grid.
+Get paginated party summaries. Accepts `pageNumber`, `pageSize`, optional exact `partyName`, and optional `status=Pending|Paid`. Unsupported status values return HTTP 400.
 
-Query parameters:
+Example: `/api/PaymentInfo?pageNumber=1&pageSize=20&partyName=Vendor%20A&status=Pending`
 
-- `pageNumber` (optional, default `1`, minimum `1`)
-- `pageSize` (optional, default `10`, range `1`-`100`)
-- `partyName` (optional, exact PartyName filter)
+Each item includes the existing party/display fields plus `paidAmount`, `pendingAmount`, `paymentStatus`, `lastPaidAt`, `lastPaidByUserId`, and `lastPaidByUsername`.
 
-Example: `/api/PaymentInfo?pageNumber=1&pageSize=20&partyName=Vendor%20A`
+Summary calculations are:
 
-The response `resultObject` contains `items` and `pagination` metadata (`totalCount`, `pageSize`, `currentPage`, `totalPages`, `hasNext`, `hasPrevious`). Each item has `id`, `date`, `partyName`, `swipeCount`, `swipeAmount`, `totalAmount`, `profit`, `totalProfit`, `limitUsed`, `cardName`, `merchant`, `swipePerson`, and `remarks`.
+- `swipeCount` = number of CardInfo rows for the party
+- `totalAmount` = sum of every row's `deduction`
+- `totalProfit` = sum of every row's `profit`
+- `paidAmount` = sum represented by settled CardInfo rows
+- `pendingAmount` = `totalAmount - paidAmount`
+- `paymentStatus` = `Paid` when pending amount is zero, otherwise `Pending`
+- latest CardInfo supplies the representative date/card/merchant/swipe-person/remarks fields
 
-Summary calculations use the shared per-entry CardInfo values for that party:
+### PATCH /api/PaymentInfo/{id}/mark-paid
 
-- `swipeCount` = number of CardInfo entries for the PartyName
-- `swipeAmount` = the per-entry `deduction` (not a sum)
-- `totalAmount` = `deduction * swipeCount`
-- `profit` = per-entry CardInfo `profit`
-- `totalProfit` = `profit * swipeCount`
-- `date`, `limitUsed`, `cardName`, `merchant`, `swipePerson`, and `remarks` come from the latest CardInfo entry for that party
+Required role: `Admin` or `Master`.
+
+Atomically settles every currently pending CardInfo row in the selected party summary. The API sets pending amount to zero, updates paid amount to the lifetime total, and records the UTC payment time and authenticated JWT user. No request body is required. A missing summary returns 404; a summary with no pending amount returns 409. A later CardInfo swipe preserves the previous paid amount and reopens only that new value as pending.
 
 ---
 
@@ -556,6 +557,14 @@ Update a transaction. The route `id` must match the body `id`. Use the same requ
 ### DELETE /api/BankTransaction/{id}
 
 Delete one transaction. The account balance summaries are recalculated from the remaining entries on the next read.
+
+---
+
+## Dashboard
+
+### GET /api/Dashboard/summary
+
+Returns the combined bank balance, available cash, swipe count, party profit, stock count, and `totalPendingPartyPayment`. The pending-party value is the sum of `pendingAmount` across all lifetime PaymentInfo summaries and returns zero when nothing is pending.
 
 ---
 

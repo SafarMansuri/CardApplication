@@ -42,6 +42,9 @@ namespace CardApplicationAPI.Models
 
         public string? BankName { get; set; }
 
+        public bool IsSettled { get; set; }
+
+        public DateTime? SettledAt { get; set; }
 
         public DateTime Createdat { get; set; } = DateTime.UtcNow;
 

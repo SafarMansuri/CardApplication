@@ -50,6 +50,9 @@ namespace CardApplicationAPI.Repositories.Implementations
             if (existing == null)
                 throw new KeyNotFoundException($"CardInfo with ID {model.Id} not found");
 
+            if (existing.IsSettled)
+                throw new InvalidOperationException("Settled card info cannot be updated.");
+
             var oldPartyName = existing.PartyName;
 
             existing.CardName = model.CardName;
@@ -88,6 +91,8 @@ namespace CardApplicationAPI.Repositories.Implementations
                 await transaction.RollbackAsync();
                 return false;
             }
+            if (entity.IsSettled)
+                throw new InvalidOperationException("Settled card info cannot be deleted.");
 
             var partyName = entity.PartyName;
             _context.CardInfo.Remove(entity);
@@ -123,6 +128,8 @@ namespace CardApplicationAPI.Repositories.Implementations
                 Model = entity.Model,
                 Merchant = entity.Merchant,
                 SwipePerson = entity.SwipePerson,
+                IsSettled = entity.IsSettled,
+                SettledAt = entity.SettledAt,
                 Createdat = entity.Createdat,
                 Updatedat = entity.Updatedat
             };
@@ -148,6 +155,8 @@ namespace CardApplicationAPI.Repositories.Implementations
                 Model = model.Model,
                 Merchant = model.Merchant,
                 SwipePerson = model.SwipePerson,
+                IsSettled = false,
+                SettledAt = null,
                 Createdat = model.Createdat,
                 Updatedat = model.Updatedat
             };
@@ -179,14 +188,20 @@ namespace CardApplicationAPI.Repositories.Implementations
 
             var latest = entries[0];
             var swipeCount = entries.Count;
+            var totalAmount = entries.Sum(x => x.Deduction ?? 0m);
+            var totalProfit = entries.Sum(x => x.Profit ?? 0m);
+            var pendingAmount = entries.Where(x => !x.IsSettled).Sum(x => x.Deduction ?? 0m);
             var summary = existingSummary ?? new PaymentInfoEntity();
             summary.PartyName = latest.PartyName!;
             summary.Date = latest.Date;
             summary.SwipeCount = swipeCount;
             summary.SwipeAmount = latest.Deduction;
-            summary.TotalAmount = latest.Deduction * swipeCount;
+            summary.TotalAmount = totalAmount;
             summary.Profit = latest.Profit;
-            summary.TotalProfit = latest.Profit * swipeCount;
+            summary.TotalProfit = totalProfit;
+            summary.PaidAmount = totalAmount - pendingAmount;
+            summary.PendingAmount = pendingAmount;
+            summary.PaymentStatus = pendingAmount == 0m ? "Paid" : "Pending";
             summary.LimitUsed = latest.limitUsed;
             summary.CardName = latest.CardName;
             summary.Merchant = latest.Merchant;

@@ -41,6 +41,12 @@ namespace CardApplicationAPI.Data.DBContext
                 .HasIndex(x => x.PartyName)
                 .IsUnique();
 
+            modelBuilder.Entity<PaymentInfoEntity>()
+                .HasCheckConstraint("CK_PaymentInfo_PaymentStatus", "[PaymentStatus] IN ('Pending', 'Paid')");
+
+            modelBuilder.Entity<PaymentInfoEntity>()
+                .HasCheckConstraint("CK_PaymentInfo_Amounts", "[PaidAmount] >= 0 AND [PendingAmount] >= 0");
+
             modelBuilder.Entity<UserEntity>()
                 .HasIndex(x => x.Username)
                 .IsUnique();

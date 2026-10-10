@@ -1,0 +1,240 @@
+@host = https://smenterprise101.runasp.net
+@adminUsername = master
+@adminPassword = Master@123
+@partyA = Card Settlement Party Alpha 20261010 B
+@partyAEncoded = Card%20Settlement%20Party%20Alpha%2020261010%20B
+@partyB = Card Settlement Party Beta 20261010 B
+@partyBEncoded = Card%20Settlement%20Party%20Beta%2020261010%20B
+
+### 1. Login as Admin or Master
+# @name login
+POST {{host}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "username": "{{adminUsername}}",
+  "password": "{{adminPassword}}"
+}
+
+### 2. Create Party A swipe 1
+# @name partyASwipe1
+POST {{host}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "cardName": "Axis Business Card",
+  "cardNumber": "AXIS-SETTLEMENT-B-001",
+  "imei": "CARD-B-IMEI-001",
+  "partyName": "Safar",
+  "deduction": 325.00,
+  "profit": 35.00,
+  "date": "2026-10-11T09:30:00Z",
+  "pos": "POS-B-01",
+  "model": "Galaxy S26",
+  "merchant": "Settlement Merchant Alpha",
+  "swipePerson": "Amit",
+  "remarks": "Party A first pending swipe",
+  "limitUsed": false,
+  "additionalInfo": "Dedicated CardInfo settlement test",
+  "bankName": "Axis Bank"
+}
+
+### 3. Create Party A swipe 2 with a different value
+# @name partyASwipe2
+POST {{host}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "cardName": "ICICI Corporate Card",
+  "cardNumber": "ICICI-SETTLEMENT-B-002",
+  "imei": "CARD-B-IMEI-002",
+  "partyName": "Safar",
+  "deduction": 675.00,
+  "profit": 65.00,
+  "date": "2026-10-11T10:45:00Z",
+  "pos": "POS-B-02",
+  "model": "iPhone 18",
+  "merchant": "Settlement Merchant Beta",
+  "swipePerson": "Priya",
+  "remarks": "Party A second pending swipe",
+  "limitUsed": true,
+  "additionalInfo": "Unequal amount aggregation test",
+  "bankName": "ICICI Bank"
+}
+
+### 4. Create Party B swipe for independent pending comparison
+# @name partyBSwipe1
+POST {{host}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "cardName": "HDFC Platinum Card",
+  "cardNumber": "HDFC-SETTLEMENT-B-001",
+  "imei": "CARD-B-IMEI-003",
+  "partyName": "Janvi",
+  "deduction": 1500.00,
+  "profit": 225.00,
+  "date": "2026-10-11T11:30:00Z",
+  "pos": "POS-B-03",
+  "model": "Pixel 11 Pro",
+  "merchant": "Settlement Merchant Gamma",
+  "swipePerson": "Rohan",
+  "remarks": "Party B remains pending",
+  "limitUsed": false,
+  "additionalInfo": "Independent party summary test",
+  "bankName": "HDFC Bank"
+}
+
+### 5. Read Party A summary and capture summary ID
+# Expected:
+# swipeCount=2, totalAmount=1000, totalProfit=100,
+# paidAmount=0, pendingAmount=1000, paymentStatus=Pending.
+# @name partyASummaryBeforePayment
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName={{partyAEncoded}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+@partyASummaryId = {{partyASummaryBeforePayment.response.body.$.resultObject.items[0].id}}  10 11
+@partyASwipe1Id = {{partyASwipe1.response.body.$.resultObject.id}}10
+@partyASwipe2Id = {{partyASwipe2.response.body.$.resultObject.id}}11
+
+### 6. Read Party B summary
+# Expected: totalAmount=1500, totalProfit=225, pendingAmount=1500, status=Pending.
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName={{partyBEncoded}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 7. List pending party summaries
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=100&status=Pending
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 8. Invalid status must return HTTP 400
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&status=Processing
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 9. Read dashboard before settlement
+# These new records contribute 2500 to totalPendingPartyPayment.
+GET {{host}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 10. Mark all Party A pending swipes paid
+# Expected: totalAmount=1000, paidAmount=1000, pendingAmount=0,
+# paymentStatus=Paid, lastPaidAt populated, lastPaidByUsername=master.
+# @name firstSettlement
+PATCH {{host}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 11. Read Party A after settlement
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName={{partyAEncoded}}&status=Paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 12. Read settled CardInfo swipe
+# Expected: isSettled=true and settledAt populated.
+GET {{host}}/api/CardInfo/{{partyASwipe1Id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 13. Updating a settled swipe must return HTTP 409
+PUT {{host}}/api/CardInfo/{{partyASwipe2Id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "id": {{partyASwipe2Id}},
+  "cardName": "ICICI Corporate Card",
+  "cardNumber": "ICICI-SETTLEMENT-B-002",
+  "imei": "CARD-B-IMEI-002",
+  "partyName": "{{partyA}}",
+  "deduction": 9999.00,
+  "profit": 65.00,
+  "date": "2026-10-11T10:45:00Z",
+  "pos": "POS-B-02",
+  "model": "iPhone 18",
+  "merchant": "Settlement Merchant Beta",
+  "swipePerson": "Priya",
+  "remarks": "This update must be rejected",
+  "limitUsed": true,
+  "additionalInfo": "Settled rows are immutable",
+  "bankName": "ICICI Bank"
+}
+
+### 14. Deleting a settled swipe must return HTTP 409
+DELETE {{host}}/api/CardInfo/{{partyASwipe1Id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 15. Repeating settlement without new pending swipes must return HTTP 409
+PATCH {{host}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 16. Create a new Party A swipe after the first settlement
+# @name partyASwipe3
+POST {{host}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "cardName": "SBI Premium Card",
+  "cardNumber": "SBI-SETTLEMENT-B-003",
+  "imei": "CARD-B-IMEI-004",
+  "partyName": "{{partyA}}",
+  "deduction": 225.00,
+  "profit": 25.00,
+  "date": "2026-10-11T14:00:00Z",
+  "pos": "POS-B-04",
+  "model": "OnePlus 16",
+  "merchant": "Settlement Merchant Delta",
+  "swipePerson": "Sneha",
+  "remarks": "New pending swipe after first settlement",
+  "limitUsed": false,
+  "additionalInfo": "Second settlement cycle",
+  "bankName": "SBI"
+}
+
+### 17. Verify Party A lifetime summary reopened as Pending
+# Expected:
+# swipeCount=3, totalAmount=1225, totalProfit=125,
+# paidAmount=1000, pendingAmount=225, paymentStatus=Pending.
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName={{partyAEncoded}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 18. Read dashboard after the new Party A swipe
+# The new Party A pending contribution is 225; Party B still contributes 1500.
+GET {{host}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 19. Settle Party A's second cycle
+PATCH {{host}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 20. Final Party A summary
+# Expected: totalAmount=1225, paidAmount=1225, pendingAmount=0, status=Paid.
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName={{partyAEncoded}}&status=Paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 21. Verify Party B remains Pending
+GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName={{partyBEncoded}}&status=Pending
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### 22. List CardInfo records for manual inspection
+GET {{host}}/api/CardInfo?pageNumber=1&pageSize=100
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Accept: application/json
+
+### Optional authorization test
+# Paste a JWT belonging to a user with role User. The request must return HTTP 403.
+# @normalUserToken = paste-token-here
+# PATCH {{host}}/api/PaymentInfo/{{partyASummaryId}}/mark-paid
+# Authorization: Bearer {{normalUserToken}}

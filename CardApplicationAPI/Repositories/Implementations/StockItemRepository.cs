@@ -63,9 +63,19 @@ namespace CardApplicationAPI.Repositories.Implementations
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var existing = await _context.StockItems.FirstOrDefaultAsync(x => x.Id == model.Id);
+                var existing = await _context.StockItems
+                    .Include(x => x.PaymentInfo)
+                    .FirstOrDefaultAsync(x => x.Id == model.Id);
                 if (existing == null)
                     throw new InvalidOperationException($"Stock item with ID {model.Id} not found");
+
+                var completedPayment = existing.PaymentInfo.FirstOrDefault(x => x.PaymentStatus == "Completed");
+                var financialFieldsChanged = existing.Amount != model.Amount
+                    || !string.Equals(existing.InOut, model.InOut, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(existing.PartyName?.Trim(), model.PartyName?.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(existing.SoldTo?.Trim(), model.SoldTo?.Trim(), StringComparison.OrdinalIgnoreCase);
+                if (completedPayment != null && financialFieldsChanged)
+                    throw new InvalidOperationException("Reset the completed stock payment before changing financial fields.");
 
                 existing.No = model.No;
                 existing.InDate = model.InDate;
@@ -100,8 +110,12 @@ namespace CardApplicationAPI.Repositories.Implementations
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var entity = await _context.StockItems.FirstOrDefaultAsync(x => x.Id == id);
+                var entity = await _context.StockItems
+                    .Include(x => x.PaymentInfo)
+                    .FirstOrDefaultAsync(x => x.Id == id);
                 if (entity == null) return false;
+                if (entity.PaymentInfo.Any(x => x.PaymentStatus == "Completed"))
+                    throw new InvalidOperationException("Reset the completed stock payment before deleting this stock item.");
 
                 var stockItemId = entity.Id;
                 _context.StockItems.Remove(entity);
@@ -215,22 +229,31 @@ namespace CardApplicationAPI.Repositories.Implementations
             var existingSummary = summaries.FirstOrDefault();
             var summary = existingSummary ?? new StockPaymentInfoEntity();
 
+            var isReceivable = string.Equals(stockItem.InOut, "OUT", StringComparison.OrdinalIgnoreCase);
+            var responsibleParty = isReceivable ? stockItem.SoldTo : stockItem.PartyName;
             summary.No = stockItem.No;
-            summary.AccountName = stockItem.PartyName;
+            summary.AccountName = responsibleParty;
             summary.AccountNo = null;
             summary.Ifsc = null;
             summary.Amount = stockItem.Amount;
             summary.Date = stockItem.InDate ?? stockItem.OutDate ?? stockItem.CreatedAt;
-            summary.PartyName = stockItem.PartyName;
+            summary.PartyName = responsibleParty;
             summary.Bank = stockItem.Payment;
             summary.InOut = stockItem.InOut;
+            summary.PaymentType = isReceivable ? "Receivable" : "Payable";
             summary.Remarks = stockItem.Remarks;
             summary.StockItemId = stockItem.Id;
 
             if (existingSummary == null)
             {
+                summary.PaymentStatus = "Pending";
+                summary.OutstandingAmount = stockItem.Amount ?? 0m;
                 summary.CreatedAt = DateTime.UtcNow;
                 _context.StockPaymentInfo.Add(summary);
+            }
+            else if (summary.PaymentStatus == "Pending")
+            {
+                summary.OutstandingAmount = stockItem.Amount ?? 0m;
             }
 
             summary.UpdatedAt = DateTime.UtcNow;

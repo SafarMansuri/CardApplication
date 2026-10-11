@@ -217,7 +217,7 @@ The current business areas are:
 2. **Users**: user records, roles, password hashing, and user administration.
 3. **Card information**: card record CRUD and model/entity mapping.
 4. **Payment information**: one lifetime summary per party, derived from CardInfo, with paid/pending balances and an Admin/Master settlement action.
-5. **Stock and stock payments**: stock CRUD plus automatically synchronized read-only payment summaries.
+5. **Stock and stock payments**: stock CRUD, synchronized Payable/Receivable obligations, per-item settlement/reset, immutable payment history, and party-wise summaries.
 6. **Cash and bank ledgers**: cash movements, dynamic bank accounts, account transactions, and atomic transfers.
 7. **Dashboard**: combined financial/inventory totals including pending party payments.
 

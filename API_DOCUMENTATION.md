@@ -324,46 +324,53 @@ Delete stock item.
 
 Base route: /api/StockPaymentInfo
 
-Stock payment summaries are derived from the stock item itself. A record is created, updated, or deleted automatically when the matching StockItem is created, updated, or removed. This keeps the payment sheet aligned with the stock source of truth and avoids direct manual edits.
+Each StockItem automatically owns one StockPaymentInfo obligation. `IN` creates a supplier `Payable` using `PartyName`; `OUT` creates a buyer `Receivable` using `SoldTo`. New obligations are `Pending`, and Admin/Master users settle them per item.
+
+StockItem validation requires `IN` or `OUT`, a positive amount, PartyName for IN, and SoldTo for OUT. Available inventory is defined by `status=Available`.
 
 ### GET /api/StockPaymentInfo
 
-Get a paginated list of stock payment summary records. Accepts `pageNumber` (default `1`), `pageSize` (default `10`), optional `partyName`, and optional `inOut` filter. The response uses the common `items` and `pagination` structure.
+Returns paginated obligations. Filters: `partyName`, `inOut=IN|OUT`, `paymentType=Payable|Receivable`, and `status=Pending|Completed`.
 
 ### GET /api/StockPaymentInfo/{id}
 
-Get a single stock payment summary by ID.
+Get one obligation, including amount, outstanding amount, classification, status, and completion audit.
 
 ### GET /api/StockPaymentInfo/stock/{stockItemId}
 
-Get the payment summary for one stock item. Accepts `pageNumber` and `pageSize` as query parameters.
+Get the obligation linked to a StockItem.
 
-Business rules:
+### PATCH /api/StockPaymentInfo/{id}/settle
 
-- `In` payment means the stock came in / the business is paying out to the party.
-- `Out` payment means the stock went out / the business is receiving from the party.
-- `amount` is the stock item `amount` for that record.
-- `date` is the stock item `inDate`, `outDate`, or created date.
-- `partyName`, `bank`, `inOut`, and `remarks` are synchronized from the linked stock item.
-
-Example summary response shape:
+Admin/Master only. Completes the full outstanding amount atomically and creates an immutable Settlement history event. Partial settlement is not supported.
 
 ```json
 {
-  "id": 12,
-  "no": "ST-001",
-  "accountName": "ABC Mobile",
-  "accountNo": null,
-  "ifsc": null,
   "amount": 72000.00,
-  "date": "2026-09-24T00:00:00",
-  "partyName": "ABC Mobile",
-  "bank": "Cash",
-  "inOut": "IN",
-  "remarks": "Purchased from supplier",
-  "stockItemId": 7
+  "transactionDate": "2026-10-10T13:00:00Z",
+  "paymentMethod": "Bank Transfer",
+  "referenceNo": "PAY-001",
+  "remarks": "Supplier paid"
 }
 ```
+
+### PATCH /api/StockPaymentInfo/{id}/reset
+
+Admin/Master only. Returns a Completed obligation to Pending and records an immutable Reset event. Body: `{ "reason": "Correction reason" }`.
+
+### GET /api/StockPaymentInfo/{id}/history
+
+Returns paginated Settlement and Reset audit events, including amount, date, method/reference, remarks, authenticated admin, and creation time.
+
+### GET /api/StockPaymentInfo/summary/parties
+
+Returns party-wise totals grouped separately by Payable and Receivable: item count, total amount, completed amount, and outstanding amount. Supports party, type, status, and pagination filters.
+
+### GET /api/StockPaymentInfo/summary/totals
+
+Returns `pendingPayable` and `pendingReceivable` across all stock obligations.
+
+Completed obligations protect StockItem amount, direction, PartyName, SoldTo, and deletion until an admin resets the payment. Descriptive fields remain editable.
 
 ---
 
@@ -564,7 +571,7 @@ Delete one transaction. The account balance summaries are recalculated from the 
 
 ### GET /api/Dashboard/summary
 
-Returns the combined bank balance, available cash, swipe count, party profit, stock count, and `totalPendingPartyPayment`. The pending-party value is the sum of `pendingAmount` across all lifetime PaymentInfo summaries and returns zero when nothing is pending.
+Returns bank balance, available cash, card swipe/profit values, legacy stock count, and `totalPendingPartyPayment`. It also returns `availableStockCount`, `availableStockValue`, `pendingStockPayable`, and `pendingStockReceivable`. Available inventory uses StockItem rows whose normalized status is `Available`; payable/receivable totals sum outstanding StockPaymentInfo balances.
 
 ---
 

@@ -37,6 +37,22 @@ namespace CardApplicationAPI.Data.Entities
         [Column("IN/OUT")]
         public string? InOut { get; set; }
 
+        [Required, MaxLength(20)]
+        public string PaymentType { get; set; } = "Payable";
+
+        [Required, MaxLength(20)]
+        public string PaymentStatus { get; set; } = "Pending";
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal OutstandingAmount { get; set; }
+
+        public DateTime? CompletedAt { get; set; }
+
+        public int? CompletedByUserId { get; set; }
+
+        [MaxLength(100)]
+        public string? CompletedByUsername { get; set; }
+
         [Column("REMARKS")]
         public string? Remarks { get; set; }
 
@@ -48,5 +64,7 @@ namespace CardApplicationAPI.Data.Entities
 
         [ForeignKey(nameof(StockItemId))]
         public StockItemEntity? StockItem { get; set; }
+
+        public ICollection<StockPaymentHistoryEntity> History { get; set; } = new List<StockPaymentHistoryEntity>();
     }
 }

@@ -14,58 +14,83 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null)
+        public async Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetAllAsync(PaginationParams pagination, string? partyName, string? inOut, string? paymentType, string? status)
         {
-            var result = await _repository.GetAllAsync(pagination, partyName, inOut);
-            return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateSuccess(result, "Stock payment records retrieved successfully.");
+            var validation = NormalizeFilters(ref inOut, ref paymentType, ref status);
+            if (validation != null) return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateFail(validation, ApplicationActionStatusCodes.ValidationFailed);
+            return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateSuccess(await _repository.GetAllAsync(pagination, partyName, inOut, paymentType, status), "Stock payment records retrieved successfully.");
         }
 
         public async Task<InternalActionResult<StockPaymentInfo?>> GetByIdAsync(int id)
         {
             var item = await _repository.GetByIdAsync(id);
-            if (item == null)
-                return FactoryResponse<StockPaymentInfo?>.CreateFail("Stock payment record not found.");
-
-            return FactoryResponse<StockPaymentInfo?>.CreateSuccess(item, "Stock payment record retrieved successfully.");
+            return item == null
+                ? FactoryResponse<StockPaymentInfo?>.CreateFail("Stock payment record not found.", ApplicationActionStatusCodes.NotFound)
+                : FactoryResponse<StockPaymentInfo?>.CreateSuccess(item, "Stock payment record retrieved successfully.");
         }
 
         public async Task<InternalActionResult<PaginatedResult<StockPaymentInfo>>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination)
         {
-            if (stockItemId <= 0)
-                return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateFail("Stock item id is invalid.", ApplicationActionStatusCodes.ValidationFailed);
-
-            var result = await _repository.GetByStockItemIdAsync(stockItemId, pagination);
-            return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateSuccess(result, "Payments for stock item retrieved successfully.");
+            if (stockItemId <= 0) return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateFail("Stock item id is invalid.", ApplicationActionStatusCodes.ValidationFailed);
+            return FactoryResponse<PaginatedResult<StockPaymentInfo>>.CreateSuccess(await _repository.GetByStockItemIdAsync(stockItemId, pagination), "Payments for stock item retrieved successfully.");
         }
 
-        public async Task<InternalActionResult<StockPaymentInfo>> AddAsync(StockPaymentInfo model)
+        public async Task<InternalActionResult<StockPaymentInfo>> SettleAsync(int id, StockPaymentSettlementRequest request, int userId, string username)
         {
-            if (string.IsNullOrWhiteSpace(model.No))
-                return FactoryResponse<StockPaymentInfo>.CreateFail("Payment number is required.");
-
-            if (model.StockItemId <= 0)
-                return FactoryResponse<StockPaymentInfo>.CreateFail("Stock item id is required.");
-
-            var created = await _repository.CreateAsync(model);
-            return FactoryResponse<StockPaymentInfo>.CreateSuccess(created, "Stock payment record added successfully.");
+            if (request.Amount <= 0 || request.TransactionDate == default || string.IsNullOrWhiteSpace(request.PaymentMethod))
+                return FactoryResponse<StockPaymentInfo>.CreateFail("A positive amount, transaction date, and payment method are required.", ApplicationActionStatusCodes.ValidationFailed);
+            try
+            {
+                var result = await _repository.SettleAsync(id, request, userId, username);
+                return result == null
+                    ? FactoryResponse<StockPaymentInfo>.CreateFail("Stock payment record not found.", ApplicationActionStatusCodes.NotFound)
+                    : FactoryResponse<StockPaymentInfo>.CreateSuccess(result, "Stock payment completed successfully.");
+            }
+            catch (ArgumentException ex) { return FactoryResponse<StockPaymentInfo>.CreateFail(ex.Message, ApplicationActionStatusCodes.ValidationFailed); }
+            catch (InvalidOperationException ex) { return FactoryResponse<StockPaymentInfo>.CreateFail(ex.Message, ApplicationActionStatusCodes.Conflict); }
         }
 
-        public async Task<InternalActionResult<bool>> UpdateAsync(StockPaymentInfo model)
+        public async Task<InternalActionResult<StockPaymentInfo>> ResetAsync(int id, StockPaymentResetRequest request, int userId, string username)
         {
-            if (model.Id <= 0)
-                return FactoryResponse<bool>.CreateFail("Stock payment id is invalid.");
-
-            await _repository.UpdateAsync(model);
-            return FactoryResponse<bool>.CreateSuccess(true, "Stock payment record updated successfully.");
+            if (string.IsNullOrWhiteSpace(request.Reason)) return FactoryResponse<StockPaymentInfo>.CreateFail("Reset reason is required.", ApplicationActionStatusCodes.ValidationFailed);
+            try
+            {
+                var result = await _repository.ResetAsync(id, request, userId, username);
+                return result == null
+                    ? FactoryResponse<StockPaymentInfo>.CreateFail("Stock payment record not found.", ApplicationActionStatusCodes.NotFound)
+                    : FactoryResponse<StockPaymentInfo>.CreateSuccess(result, "Stock payment reset successfully.");
+            }
+            catch (InvalidOperationException ex) { return FactoryResponse<StockPaymentInfo>.CreateFail(ex.Message, ApplicationActionStatusCodes.Conflict); }
         }
 
-        public async Task<InternalActionResult<bool>> DeleteAsync(int id)
+        public async Task<InternalActionResult<PaginatedResult<StockPaymentHistory>>> GetHistoryAsync(int id, PaginationParams pagination)
         {
-            var deleted = await _repository.DeleteAsync(id);
-            if (!deleted)
-                return FactoryResponse<bool>.CreateFail("Stock payment record not found.");
-
-            return FactoryResponse<bool>.CreateSuccess(true, "Stock payment record deleted successfully.");
+            if (await _repository.GetByIdAsync(id) == null) return FactoryResponse<PaginatedResult<StockPaymentHistory>>.CreateFail("Stock payment record not found.", ApplicationActionStatusCodes.NotFound);
+            return FactoryResponse<PaginatedResult<StockPaymentHistory>>.CreateSuccess(await _repository.GetHistoryAsync(id, pagination), "Stock payment history retrieved successfully.");
         }
+
+        public async Task<InternalActionResult<PaginatedResult<StockPartyPaymentSummary>>> GetPartySummariesAsync(PaginationParams pagination, string? partyName, string? paymentType, string? status)
+        {
+            string? inOut = null;
+            var validation = NormalizeFilters(ref inOut, ref paymentType, ref status);
+            if (validation != null) return FactoryResponse<PaginatedResult<StockPartyPaymentSummary>>.CreateFail(validation, ApplicationActionStatusCodes.ValidationFailed);
+            return FactoryResponse<PaginatedResult<StockPartyPaymentSummary>>.CreateSuccess(await _repository.GetPartySummariesAsync(pagination, partyName, paymentType, status), "Stock party payment summaries retrieved successfully.");
+        }
+
+        public async Task<InternalActionResult<StockPaymentTotals>> GetTotalsAsync() =>
+            FactoryResponse<StockPaymentTotals>.CreateSuccess(await _repository.GetTotalsAsync(), "Stock payment totals retrieved successfully.");
+
+        private static string? NormalizeFilters(ref string? inOut, ref string? paymentType, ref string? status)
+        {
+            inOut = inOut?.Trim().ToUpperInvariant();
+            if (!string.IsNullOrWhiteSpace(inOut) && inOut != "IN" && inOut != "OUT") return "InOut must be IN or OUT.";
+            paymentType = NormalizeTitle(paymentType);
+            if (!string.IsNullOrWhiteSpace(paymentType) && paymentType != "Payable" && paymentType != "Receivable") return "PaymentType must be Payable or Receivable.";
+            status = NormalizeTitle(status);
+            if (!string.IsNullOrWhiteSpace(status) && status != "Pending" && status != "Completed") return "Status must be Pending or Completed.";
+            return null;
+        }
+
+        private static string? NormalizeTitle(string? value) => string.IsNullOrWhiteSpace(value) ? null : char.ToUpperInvariant(value.Trim()[0]) + value.Trim()[1..].ToLowerInvariant();
     }
 }

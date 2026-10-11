@@ -463,6 +463,16 @@ namespace CardApplicationAPI.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("BANK");
 
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CompletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CompletedByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -483,9 +493,22 @@ namespace CardApplicationAPI.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("NO");
 
+                    b.Property<decimal>("OutstandingAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("PartyName")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("PARTY NAME");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PaymentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)")
@@ -502,7 +525,31 @@ namespace CardApplicationAPI.Migrations
                     b.HasIndex("StockItemId")
                         .IsUnique();
 
-                    b.ToTable("StockPaymentInfo");
+                    b.ToTable("StockPaymentInfo", t =>
+                        {
+                            t.HasCheckConstraint("CK_StockPaymentInfo_OutstandingAmount", "[OutstandingAmount] >= 0");
+                            t.HasCheckConstraint("CK_StockPaymentInfo_PaymentStatus", "[PaymentStatus] IN ('Pending', 'Completed')");
+                            t.HasCheckConstraint("CK_StockPaymentInfo_PaymentType", "[PaymentType] IN ('Payable', 'Receivable')");
+                        });
+                });
+
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.StockPaymentHistoryEntity", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("int");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<decimal>("Amount").HasColumnType("decimal(18,2)");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
+                    b.Property<string>("EventType").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<string>("PaymentMethod").HasMaxLength(50).HasColumnType("nvarchar(50)");
+                    b.Property<int>("PerformedByUserId").HasColumnType("int");
+                    b.Property<string>("PerformedByUsername").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("ReferenceNo").HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("Remarks").HasMaxLength(500).HasColumnType("nvarchar(500)");
+                    b.Property<int>("StockPaymentInfoId").HasColumnType("int");
+                    b.Property<DateTime>("TransactionDate").HasColumnType("datetime2");
+                    b.HasKey("Id");
+                    b.HasIndex("StockPaymentInfoId", "CreatedAt");
+                    b.ToTable("StockPaymentHistory", t => t.HasCheckConstraint("CK_StockPaymentHistory_EventType", "[EventType] IN ('Settlement', 'Reset')"));
                 });
 
             modelBuilder.Entity("CardApplicationAPI.Data.Entities.UserEntity", b =>
@@ -570,6 +617,17 @@ namespace CardApplicationAPI.Migrations
                     b.Navigation("RelatedAccount");
                 });
 
+            modelBuilder.Entity("CardApplicationAPI.Data.Entities.StockPaymentHistoryEntity", b =>
+                {
+                    b.HasOne("CardApplicationAPI.Data.Entities.StockPaymentInfoEntity", "StockPaymentInfo")
+                        .WithMany("History")
+                        .HasForeignKey("StockPaymentInfoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StockPaymentInfo");
+                });
+
             modelBuilder.Entity("CardApplicationAPI.Data.Entities.StockPaymentInfoEntity", b =>
                 {
                     b.HasOne("CardApplicationAPI.Data.Entities.StockItemEntity", "StockItem")
@@ -579,6 +637,8 @@ namespace CardApplicationAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("StockItem");
+
+                    b.Navigation("History");
                 });
 
             modelBuilder.Entity("CardApplicationAPI.Data.Entities.BankAccountEntity", b =>

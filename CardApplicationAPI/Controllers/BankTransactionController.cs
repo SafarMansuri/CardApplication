@@ -22,27 +22,29 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetAll([FromQuery] PaginationParams pagination)
         {
             var result = await _service.GetAllAsync(pagination);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("{id:int}")]
         public async Task<ActionResult<InternalActionResult<BankTransaction?>>> GetById(int id)
         {
             var result = await _service.GetByIdAsync(id);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("account/{accountId:int}")]
         public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetByAccountId(int accountId, [FromQuery] PaginationParams pagination)
         {
             var result = await _service.GetByAccountIdAsync(accountId, pagination);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpPost]
         public async Task<ActionResult<InternalActionResult<BankTransaction>>> Create([FromBody] BankTransaction model)
         {
             var result = await _service.AddAsync(model);
+            if (result.StatusCode != ApplicationActionStatusCodes.Success)
+                return StatusCode((int)result.StatusCode, result);
             return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
         }
 
@@ -57,17 +59,17 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<bool>>> Update(int id, [FromBody] BankTransaction model)
         {
             if (id != model.Id)
-                return BadRequest(FactoryResponse<bool>.CreateFail("Bank transaction ID mismatch."));
+                return BadRequest(FactoryResponse<bool>.CreateFail("Bank transaction ID mismatch.", ApplicationActionStatusCodes.BadRequest));
 
             var result = await _service.UpdateAsync(model);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpDelete("{id:int}")]
         public async Task<ActionResult<InternalActionResult<bool>>> Delete(int id)
         {
             var result = await _service.DeleteAsync(id);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
     }
 }

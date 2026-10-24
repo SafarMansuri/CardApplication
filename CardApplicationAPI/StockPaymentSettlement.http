@@ -1,0 +1,179 @@
+@host = https://smenterprise101.runasp.net
+@username = master
+@password = Master@123
+@supplier = Stock Test Supplier 20261010
+@buyer = Stock Test Buyer 20261010
+
+### 1. Login as Admin/Master
+# @name login
+POST {{host}}/api/Auth/login
+Content-Type: application/json
+
+{"username":"{{username}}","password":"{{password}}"}
+
+### 2. Create available IN stock: creates Pending Payable for supplier
+# @name createInStock
+POST {{host}}/api/StockItem
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "no":"STOCK-PAY-IN-20261010",
+  "inDate":"2026-10-10T09:00:00Z",
+  "imei":"869900000000101",
+  "colour":"Black",
+  "model":"Galaxy Settlement Test",
+  "gstMrp":85000,
+  "amount":70000,
+  "partyName":"JAANU",
+  "payment":"Bank",
+  "inOut":"IN",
+  "status":"Available",
+  "soldTo":null,
+  "remarks":"Supplier payable test"
+}
+
+### 3. Create OUT stock: creates Pending Receivable from SoldTo buyer
+# @name createOutStock
+POST {{host}}/api/StockItem
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "no":"STOCK-PAY-OUT-20261010",
+  "outDate":"2026-10-10T11:00:00Z",
+  "imei":"869900000000102",
+  "colour":"Blue",
+  "model":"iPhone Settlement Test",
+  "gstMrp":110000,
+  "amount":95000,
+  "partyName":"Original Supplier",
+  "payment":"UPI",
+  "inOut":"OUT",
+  "status":"Sold",
+  "soldTo":"Safar",
+  "remarks":"Buyer receivable test"
+}
+
+@inStockId = {{createInStock.response.body.$.resultObject.id}}   - 9
+@outStockId = {{createOutStock.response.body.$.resultObject.id}}  - 10
+
+### 4. Read IN payment and capture ID
+# Expected: Payable, Pending, partyName=supplier, outstandingAmount=70000.
+# @name inPayment
+GET {{host}}/api/StockPaymentInfo/stock/{{inStockId}}?pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 5. Read OUT payment and capture ID
+# Expected: Receivable, Pending, partyName=buyer (SoldTo), outstandingAmount=95000.
+# @name outPayment
+GET {{host}}/api/StockPaymentInfo/stock/{{outStockId}}?pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+@inPaymentId = {{inPayment.response.body.$.resultObject.items[0].id}}  - 5
+@outPaymentId = {{outPayment.response.body.$.resultObject.items[0].id}}  - 6
+
+### 6. Filter pending payables
+GET {{host}}/api/StockPaymentInfo?pageNumber=1&pageSize=20&paymentType=Payable&status=Pending
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 7. Filter pending receivables
+GET {{host}}/api/StockPaymentInfo?pageNumber=1&pageSize=20&paymentType=Receivable&status=Pending
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 8. Party-wise summaries
+GET {{host}}/api/StockPaymentInfo/summary/parties?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 9. Overall payable/receivable totals
+GET {{host}}/api/StockPaymentInfo/summary/totals
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 10. Dashboard before settlement
+# New data contributes availableStockCount +1, availableStockValue +70000,
+# pendingStockPayable +70000, pendingStockReceivable +95000.
+GET {{host}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 11. Wrong settlement amount must return HTTP 400
+PATCH {{host}}/api/StockPaymentInfo/{{inPaymentId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":69999,"transactionDate":"2026-10-10T13:00:00Z","paymentMethod":"Bank Transfer","referenceNo":"WRONG-AMOUNT","remarks":"Must fail"}
+
+### 12. Settle supplier payable
+PATCH {{host}}/api/StockPaymentInfo/{{inPaymentId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":70000,"transactionDate":"2026-10-10T13:05:00Z","paymentMethod":"Bank Transfer","referenceNo":"PAY-IN-20261010","remarks":"Supplier fully paid"}
+
+### 13. Settle buyer receivable
+PATCH {{host}}/api/StockPaymentInfo/{{outPaymentId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":95000,"transactionDate":"2026-10-10T13:10:00Z","paymentMethod":"UPI","referenceNo":"RECEIVE-OUT-20261010","remarks":"Buyer payment received"}
+
+### 14. Duplicate settlement must return HTTP 409
+PATCH {{host}}/api/StockPaymentInfo/{{inPaymentId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":70000,"transactionDate":"2026-10-10T13:15:00Z","paymentMethod":"Bank Transfer"}
+
+### 15. Financial update on completed stock must return HTTP 409
+PUT {{host}}/api/StockItem/{{inStockId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{inStockId}},"no":"STOCK-PAY-IN-20261010","inDate":"2026-10-10T09:00:00Z","imei":"869900000000101","colour":"Black","model":"Galaxy Settlement Test","gstMrp":85000,"amount":71000,"partyName":"{{supplier}}","payment":"Bank","inOut":"IN","status":"Available","remarks":"Must fail"}
+
+### 16. Descriptive update with unchanged financial fields succeeds
+PUT {{host}}/api/StockItem/{{inStockId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{inStockId}},"no":"STOCK-PAY-IN-20261010","inDate":"2026-10-10T09:00:00Z","imei":"869900000000101","colour":"Graphite","model":"Galaxy Settlement Test Updated","gstMrp":85000,"amount":70000,"partyName":"{{supplier}}","payment":"Bank","inOut":"IN","status":"Available","remarks":"Allowed descriptive update"}
+
+### 17. Completed source deletion must return HTTP 409
+DELETE {{host}}/api/StockItem/{{inStockId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 18. Read immutable settlement history
+GET {{host}}/api/StockPaymentInfo/{{inPaymentId}}/history?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 19. Reset supplier payment
+PATCH {{host}}/api/StockPaymentInfo/{{inPaymentId}}/reset
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"reason":"Testing an audited admin correction"}
+
+### 20. Reset again must return HTTP 409
+PATCH {{host}}/api/StockPaymentInfo/{{inPaymentId}}/reset
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"reason":"Must fail because already pending"}
+
+### 21. Verify history has Settlement and Reset events
+GET {{host}}/api/StockPaymentInfo/{{inPaymentId}}/history?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 22. Settle supplier payable again
+PATCH {{host}}/api/StockPaymentInfo/{{inPaymentId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":70000,"transactionDate":"2026-10-10T14:00:00Z","paymentMethod":"Bank Transfer","referenceNo":"PAY-IN-SECOND-20261010","remarks":"Settlement after audited reset"}
+
+### 23. Final totals
+GET {{host}}/api/StockPaymentInfo/summary/totals
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 24. Final dashboard
+GET {{host}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}

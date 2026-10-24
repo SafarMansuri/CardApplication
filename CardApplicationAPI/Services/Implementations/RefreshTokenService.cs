@@ -28,16 +28,17 @@ namespace CardApplicationAPI.Services.Implementations
 
         public async Task<RefreshTokenEntity> GenerateRefreshTokenAsync(int userId)
         {
-            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+            return await _refreshTokenRepository.CreateAsync(CreateRefreshToken(userId));
+        }
 
-            var entity = new RefreshTokenEntity
+        private RefreshTokenEntity CreateRefreshToken(int userId)
+        {
+            return new RefreshTokenEntity
             {
                 UserId = userId,
-                Token = token,
+                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
                 ExpiresAt = DateTime.UtcNow.AddDays(_settings.RefreshExpiryDays)
             };
-
-            return await _refreshTokenRepository.CreateAsync(entity);
         }
 
         public async Task<(string? accessToken, string? refreshToken, string? error)> RotateAsync(string refreshToken)
@@ -57,8 +58,9 @@ namespace CardApplicationAPI.Services.Implementations
             if (user == null)
                 return (null, null, "User not found.");
 
-            var newRefreshToken = await GenerateRefreshTokenAsync(user.Id);
-            await _refreshTokenRepository.RevokeAsync(stored, newRefreshToken.Token);
+            var newRefreshToken = CreateRefreshToken(user.Id);
+            if (!await _refreshTokenRepository.TryRotateAsync(stored, newRefreshToken))
+                return (null, null, "Refresh token has been revoked or expired.");
 
             var accessToken = _jwtTokenService.GenerateAccessToken(user);
 

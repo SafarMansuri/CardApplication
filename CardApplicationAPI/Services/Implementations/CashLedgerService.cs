@@ -24,7 +24,7 @@ namespace CardApplicationAPI.Services.Implementations
         {
             var item = await _repository.GetByIdAsync(id);
             if (item == null)
-                return FactoryResponse<CashLedger?>.CreateFail("Cash ledger record not found.");
+                return FactoryResponse<CashLedger?>.CreateFail("Cash ledger record not found.", ApplicationActionStatusCodes.NotFound);
 
             return FactoryResponse<CashLedger?>.CreateSuccess(item, "Cash ledger record retrieved successfully.");
         }
@@ -32,7 +32,7 @@ namespace CardApplicationAPI.Services.Implementations
         public async Task<InternalActionResult<PaginatedResult<CashLedger>>> GetByTypeAsync(string transactionType, PaginationParams pagination)
         {
             if (string.IsNullOrWhiteSpace(transactionType))
-                return FactoryResponse<PaginatedResult<CashLedger>>.CreateFail("Transaction type is required.");
+                return FactoryResponse<PaginatedResult<CashLedger>>.CreateFail("Transaction type is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             var result = await _repository.GetByTypeAsync(transactionType, pagination);
             return FactoryResponse<PaginatedResult<CashLedger>>.CreateSuccess(result, "Cash ledger filtered by type.");
@@ -41,14 +41,14 @@ namespace CardApplicationAPI.Services.Implementations
         public async Task<InternalActionResult<CashLedger>> AddAsync(CashLedger model)
         {
             if (string.IsNullOrWhiteSpace(model.TransactionType))
-                return FactoryResponse<CashLedger>.CreateFail("Transaction type is required.");
+                return FactoryResponse<CashLedger>.CreateFail("Transaction type is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             var normalized = model.TransactionType.Trim().ToUpperInvariant();
             if (normalized != "OPENING" && normalized != "IN" && normalized != "OUT")
-                return FactoryResponse<CashLedger>.CreateFail("Transaction type must be OPENING, IN, or OUT.");
+                return FactoryResponse<CashLedger>.CreateFail("Transaction type must be OPENING, IN, or OUT.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (model.Amount <= 0)
-                return FactoryResponse<CashLedger>.CreateFail("Amount must be greater than zero.");
+                return FactoryResponse<CashLedger>.CreateFail("Amount must be greater than zero.", ApplicationActionStatusCodes.ValidationFailed);
 
             model.TransactionType = normalized;
             var created = await _repository.CreateAsync(model);
@@ -58,17 +58,17 @@ namespace CardApplicationAPI.Services.Implementations
         public async Task<InternalActionResult<bool>> UpdateAsync(CashLedger model)
         {
             if (model.Id <= 0)
-                return FactoryResponse<bool>.CreateFail("Cash ledger id is invalid.");
+                return FactoryResponse<bool>.CreateFail("Cash ledger id is invalid.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (string.IsNullOrWhiteSpace(model.TransactionType))
-                return FactoryResponse<bool>.CreateFail("Transaction type is required.");
+                return FactoryResponse<bool>.CreateFail("Transaction type is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             var normalized = model.TransactionType.Trim().ToUpperInvariant();
             if (normalized != "OPENING" && normalized != "IN" && normalized != "OUT")
-                return FactoryResponse<bool>.CreateFail("Transaction type must be OPENING, IN, or OUT.");
+                return FactoryResponse<bool>.CreateFail("Transaction type must be OPENING, IN, or OUT.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (model.Amount <= 0)
-                return FactoryResponse<bool>.CreateFail("Amount must be greater than zero.");
+                return FactoryResponse<bool>.CreateFail("Amount must be greater than zero.", ApplicationActionStatusCodes.ValidationFailed);
 
             model.TransactionType = normalized;
             await _repository.UpdateAsync(model);
@@ -79,7 +79,7 @@ namespace CardApplicationAPI.Services.Implementations
         {
             var deleted = await _repository.DeleteAsync(id);
             if (!deleted)
-                return FactoryResponse<bool>.CreateFail("Cash ledger record not found.");
+                return FactoryResponse<bool>.CreateFail("Cash ledger record not found.", ApplicationActionStatusCodes.NotFound);
 
             return FactoryResponse<bool>.CreateSuccess(true, "Cash ledger entry deleted successfully.");
         }

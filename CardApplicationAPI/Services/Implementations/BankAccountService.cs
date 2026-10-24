@@ -2,6 +2,8 @@ using CardApplicationAPI.Models;
 using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using CardApplicationAPI.Services.Interfaces;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace CardApplicationAPI.Services.Implementations
 {
@@ -24,7 +26,7 @@ namespace CardApplicationAPI.Services.Implementations
         {
             var item = await _repository.GetByIdAsync(id);
             if (item == null)
-                return FactoryResponse<BankAccount?>.CreateFail("Bank account not found.");
+                return FactoryResponse<BankAccount?>.CreateFail("Bank account not found.", ApplicationActionStatusCodes.NotFound);
 
             return FactoryResponse<BankAccount?>.CreateSuccess(item, "Bank account retrieved successfully.");
         }
@@ -32,41 +34,55 @@ namespace CardApplicationAPI.Services.Implementations
         public async Task<InternalActionResult<BankAccount>> AddAsync(BankAccount model)
         {
             if (string.IsNullOrWhiteSpace(model.AccountName))
-                return FactoryResponse<BankAccount>.CreateFail("Account name is required.");
+                return FactoryResponse<BankAccount>.CreateFail("Account name is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (string.IsNullOrWhiteSpace(model.BankName))
-                return FactoryResponse<BankAccount>.CreateFail("Bank name is required.");
+                return FactoryResponse<BankAccount>.CreateFail("Bank name is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             model.AccountName = model.AccountName.Trim();
             model.BankName = model.BankName.Trim();
 
-            var created = await _repository.CreateAsync(model);
-            return FactoryResponse<BankAccount>.CreateSuccess(created, "Bank account created successfully.");
+            try
+            {
+                var created = await _repository.CreateAsync(model);
+                return FactoryResponse<BankAccount>.CreateSuccess(created, "Bank account created successfully.");
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+            {
+                return FactoryResponse<BankAccount>.CreateFail("Account name is already in use.", ApplicationActionStatusCodes.Conflict);
+            }
         }
 
         public async Task<InternalActionResult<bool>> UpdateAsync(BankAccount model)
         {
             if (model.Id <= 0)
-                return FactoryResponse<bool>.CreateFail("Bank account id is invalid.");
+                return FactoryResponse<bool>.CreateFail("Bank account id is invalid.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (string.IsNullOrWhiteSpace(model.AccountName))
-                return FactoryResponse<bool>.CreateFail("Account name is required.");
+                return FactoryResponse<bool>.CreateFail("Account name is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (string.IsNullOrWhiteSpace(model.BankName))
-                return FactoryResponse<bool>.CreateFail("Bank name is required.");
+                return FactoryResponse<bool>.CreateFail("Bank name is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             model.AccountName = model.AccountName.Trim();
             model.BankName = model.BankName.Trim();
 
-            await _repository.UpdateAsync(model);
-            return FactoryResponse<bool>.CreateSuccess(true, "Bank account updated successfully.");
+            try
+            {
+                await _repository.UpdateAsync(model);
+                return FactoryResponse<bool>.CreateSuccess(true, "Bank account updated successfully.");
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+            {
+                return FactoryResponse<bool>.CreateFail("Account name is already in use.", ApplicationActionStatusCodes.Conflict);
+            }
         }
 
         public async Task<InternalActionResult<bool>> DeleteAsync(int id)
         {
             var deleted = await _repository.DeleteAsync(id);
             if (!deleted)
-                return FactoryResponse<bool>.CreateFail("Bank account not found.");
+                return FactoryResponse<bool>.CreateFail("Bank account not found.", ApplicationActionStatusCodes.NotFound);
 
             return FactoryResponse<bool>.CreateSuccess(true, "Bank account deleted successfully.");
         }

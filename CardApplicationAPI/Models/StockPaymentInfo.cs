@@ -25,6 +25,18 @@ namespace CardApplicationAPI.Models
 
         public string? InOut { get; set; }
 
+        public string PaymentType { get; set; } = "Payable";
+
+        public string PaymentStatus { get; set; } = "Pending";
+
+        public decimal OutstandingAmount { get; set; }
+
+        public DateTime? CompletedAt { get; set; }
+
+        public int? CompletedByUserId { get; set; }
+
+        public string? CompletedByUsername { get; set; }
+
         public string? Remarks { get; set; }
 
         public int StockItemId { get; set; }

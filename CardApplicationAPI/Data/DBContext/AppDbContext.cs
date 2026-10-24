@@ -19,6 +19,7 @@ namespace CardApplicationAPI.Data.DBContext
         public DbSet<PaymentInfoEntity> PaymentInfo { get; set; }
         public DbSet<StockItemEntity> StockItems { get; set; }
         public DbSet<StockPaymentInfoEntity> StockPaymentInfo { get; set; }
+        public DbSet<StockPaymentHistoryEntity> StockPaymentHistory { get; set; }
         public DbSet<CashLedgerEntity> CashLedger { get; set; }
         public DbSet<BankAccountEntity> BankAccounts { get; set; }
         public DbSet<BankTransactionEntity> BankTransactions { get; set; }
@@ -36,6 +37,27 @@ namespace CardApplicationAPI.Data.DBContext
                 .WithMany(x => x.PaymentInfo)
                 .HasForeignKey(x => x.StockItemId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<StockPaymentInfoEntity>()
+                .HasCheckConstraint("CK_StockPaymentInfo_PaymentType", "[PaymentType] IN ('Payable', 'Receivable')");
+
+            modelBuilder.Entity<StockPaymentInfoEntity>()
+                .HasCheckConstraint("CK_StockPaymentInfo_PaymentStatus", "[PaymentStatus] IN ('Pending', 'Completed')");
+
+            modelBuilder.Entity<StockPaymentInfoEntity>()
+                .HasCheckConstraint("CK_StockPaymentInfo_OutstandingAmount", "[OutstandingAmount] >= 0");
+
+            modelBuilder.Entity<StockPaymentHistoryEntity>()
+                .HasOne(x => x.StockPaymentInfo)
+                .WithMany(x => x.History)
+                .HasForeignKey(x => x.StockPaymentInfoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<StockPaymentHistoryEntity>()
+                .HasIndex(x => new { x.StockPaymentInfoId, x.CreatedAt });
+
+            modelBuilder.Entity<StockPaymentHistoryEntity>()
+                .HasCheckConstraint("CK_StockPaymentHistory_EventType", "[EventType] IN ('Settlement', 'Reset')");
 
             modelBuilder.Entity<PaymentInfoEntity>()
                 .HasIndex(x => x.PartyName)

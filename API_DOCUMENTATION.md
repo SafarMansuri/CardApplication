@@ -63,6 +63,8 @@ Response:
 
 Refresh an expired or near-expired access token.
 
+Rotation revokes the old refresh token and creates its replacement atomically. Concurrent refresh requests using the same old token permit only one successful rotation; the other request returns HTTP 401. Save the returned replacement token and use it for later refresh/logout requests.
+
 Request body:
 
 ```json
@@ -74,6 +76,8 @@ Request body:
 ### POST /api/Auth/logout
 
 Revoke a refresh token.
+
+Use the latest refresh token after rotation. Logout does not invalidate an already-issued access JWT before its expiry.
 
 Request body:
 
@@ -192,6 +196,8 @@ Get one card record by ID.
 ### POST /api/CardInfo
 
 Create card info record.
+
+`bankName` is required and limited to 50 characters, matching the database constraint. Missing, blank, or oversized values return HTTP 400 rather than a database error.
 
 Request body example:
 
@@ -324,46 +330,53 @@ Delete stock item.
 
 Base route: /api/StockPaymentInfo
 
-Stock payment summaries are derived from the stock item itself. A record is created, updated, or deleted automatically when the matching StockItem is created, updated, or removed. This keeps the payment sheet aligned with the stock source of truth and avoids direct manual edits.
+Each StockItem automatically owns one StockPaymentInfo obligation. `IN` creates a supplier `Payable` using `PartyName`; `OUT` creates a buyer `Receivable` using `SoldTo`. New obligations are `Pending`, and Admin/Master users settle them per item.
+
+StockItem validation requires `IN` or `OUT`, a positive amount, PartyName for IN, and SoldTo for OUT. Available inventory is defined by `status=Available`.
 
 ### GET /api/StockPaymentInfo
 
-Get a paginated list of stock payment summary records. Accepts `pageNumber` (default `1`), `pageSize` (default `10`), optional `partyName`, and optional `inOut` filter. The response uses the common `items` and `pagination` structure.
+Returns paginated obligations. Filters: `partyName`, `inOut=IN|OUT`, `paymentType=Payable|Receivable`, and `status=Pending|Completed`.
 
 ### GET /api/StockPaymentInfo/{id}
 
-Get a single stock payment summary by ID.
+Get one obligation, including amount, outstanding amount, classification, status, and completion audit.
 
 ### GET /api/StockPaymentInfo/stock/{stockItemId}
 
-Get the payment summary for one stock item. Accepts `pageNumber` and `pageSize` as query parameters.
+Get the obligation linked to a StockItem.
 
-Business rules:
+### PATCH /api/StockPaymentInfo/{id}/settle
 
-- `In` payment means the stock came in / the business is paying out to the party.
-- `Out` payment means the stock went out / the business is receiving from the party.
-- `amount` is the stock item `amount` for that record.
-- `date` is the stock item `inDate`, `outDate`, or created date.
-- `partyName`, `bank`, `inOut`, and `remarks` are synchronized from the linked stock item.
-
-Example summary response shape:
+Admin/Master only. Completes the full outstanding amount atomically and creates an immutable Settlement history event. Partial settlement is not supported.
 
 ```json
 {
-  "id": 12,
-  "no": "ST-001",
-  "accountName": "ABC Mobile",
-  "accountNo": null,
-  "ifsc": null,
   "amount": 72000.00,
-  "date": "2026-09-24T00:00:00",
-  "partyName": "ABC Mobile",
-  "bank": "Cash",
-  "inOut": "IN",
-  "remarks": "Purchased from supplier",
-  "stockItemId": 7
+  "transactionDate": "2026-10-10T13:00:00Z",
+  "paymentMethod": "Bank Transfer",
+  "referenceNo": "PAY-001",
+  "remarks": "Supplier paid"
 }
 ```
+
+### PATCH /api/StockPaymentInfo/{id}/reset
+
+Admin/Master only. Returns a Completed obligation to Pending and records an immutable Reset event. Body: `{ "reason": "Correction reason" }`.
+
+### GET /api/StockPaymentInfo/{id}/history
+
+Returns paginated Settlement and Reset audit events, including amount, date, method/reference, remarks, authenticated admin, and creation time.
+
+### GET /api/StockPaymentInfo/summary/parties
+
+Returns party-wise totals grouped separately by Payable and Receivable: item count, total amount, completed amount, and outstanding amount. Supports party, type, status, and pagination filters.
+
+### GET /api/StockPaymentInfo/summary/totals
+
+Returns `pendingPayable` and `pendingReceivable` across all stock obligations.
+
+Completed obligations protect StockItem amount, direction, PartyName, SoldTo, and deletion until an admin resets the payment. Descriptive fields remain editable.
 
 ---
 
@@ -479,7 +492,7 @@ Update the account details and active status. The route `id` must match the body
 
 ### DELETE /api/BankAccount/{id}
 
-Delete an account. Its own bank transactions are configured to be deleted with it. A referenced related account can prevent deletion while a transaction still refers to it.
+Delete an account. Its own bank transactions are deleted, and references to it from other accounts' transactions are set to null in the same transaction. This retains the current deletion policy; it is not an accounting reversal.
 
 ### GET /api/BankAccount/summary/total
 
@@ -564,7 +577,7 @@ Delete one transaction. The account balance summaries are recalculated from the 
 
 ### GET /api/Dashboard/summary
 
-Returns the combined bank balance, available cash, swipe count, party profit, stock count, and `totalPendingPartyPayment`. The pending-party value is the sum of `pendingAmount` across all lifetime PaymentInfo summaries and returns zero when nothing is pending.
+Returns bank balance, available cash, card swipe/profit values, legacy stock count, and `totalPendingPartyPayment`. It also returns `availableStockCount`, `availableStockValue`, `pendingStockPayable`, and `pendingStockReceivable`. Available inventory uses StockItem rows whose normalized status is `Available`; payable/receivable totals sum outstanding StockPaymentInfo balances.
 
 ---
 
@@ -598,7 +611,7 @@ Authentication endpoints return their own JSON response shapes (for example, log
 - 404 = Resource not found
 - 409 = Conflict, such as a duplicate username
 
-For paginated list endpoints, invalid paging values return HTTP 400. The maximum supported `pageSize` is 100. The User and CardInfo endpoints return HTTP status codes corresponding to their result status (including 400 validation failures and 404 missing records); User creation returns HTTP 201 when successful.
+For paginated list endpoints, invalid paging values return HTTP 400. The maximum supported `pageSize` is 100. Business controllers, including bank accounts, bank transactions, and cash ledger, propagate result statuses (including 400 validation failures and 404 missing records). Duplicate bank-account names return 409. Successful creation returns HTTP 201 with `statusCode: 200` in the response envelope. Framework validation and authentication responses may use a different shape.
 - 404 = Not found
 - 500 = Server error
 

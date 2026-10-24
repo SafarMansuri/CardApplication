@@ -22,55 +22,57 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<PaginatedResult<CashLedger>>>> GetAll([FromQuery] PaginationParams pagination)
         {
             var result = await _service.GetAllAsync(pagination);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("{id:long}")]
         public async Task<ActionResult<InternalActionResult<CashLedger?>>> GetById(long id)
         {
             var result = await _service.GetByIdAsync(id);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("type/{transactionType}")]
         public async Task<ActionResult<InternalActionResult<PaginatedResult<CashLedger>>>> GetByType(string transactionType, [FromQuery] PaginationParams pagination)
         {
             var result = await _service.GetByTypeAsync(transactionType, pagination);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("summary/opening")]
         public async Task<ActionResult<InternalActionResult<decimal>>> GetOpeningBalance()
         {
             var result = await _service.GetOpeningBalanceAsync();
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("summary/in")]
         public async Task<ActionResult<InternalActionResult<decimal>>> GetCashIn()
         {
             var result = await _service.GetCashInAsync();
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("summary/out")]
         public async Task<ActionResult<InternalActionResult<decimal>>> GetCashOut()
         {
             var result = await _service.GetCashOutAsync();
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpGet("summary/current")]
         public async Task<ActionResult<InternalActionResult<decimal>>> GetCurrentBalance()
         {
             var result = await _service.GetCurrentBalanceAsync();
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpPost]
         public async Task<ActionResult<InternalActionResult<CashLedger>>> Create([FromBody] CashLedger model)
         {
             var result = await _service.AddAsync(model);
+            if (result.StatusCode != ApplicationActionStatusCodes.Success)
+                return StatusCode((int)result.StatusCode, result);
             return CreatedAtAction(nameof(GetById), new { id = result.ResultObject?.Id }, result);
         }
 
@@ -78,17 +80,17 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<bool>>> Update(long id, [FromBody] CashLedger model)
         {
             if (id != model.Id)
-                return BadRequest(FactoryResponse<bool>.CreateFail("Cash ledger ID mismatch."));
+                return BadRequest(FactoryResponse<bool>.CreateFail("Cash ledger ID mismatch.", ApplicationActionStatusCodes.BadRequest));
 
             var result = await _service.UpdateAsync(model);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
 
         [HttpDelete("{id:long}")]
         public async Task<ActionResult<InternalActionResult<bool>>> Delete(long id)
         {
             var result = await _service.DeleteAsync(id);
-            return result;
+            return StatusCode((int)result.StatusCode, result);
         }
     }
 }

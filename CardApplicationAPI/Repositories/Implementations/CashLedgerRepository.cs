@@ -69,7 +69,7 @@ namespace CardApplicationAPI.Repositories.Implementations
         {
             var existing = await _context.CashLedger.FirstOrDefaultAsync(x => x.Id == model.Id);
             if (existing == null)
-                throw new InvalidOperationException($"Cash ledger with ID {model.Id} not found");
+                throw new KeyNotFoundException($"Cash ledger with ID {model.Id} not found");
 
             existing.TransactionDate = model.TransactionDate;
             existing.TransactionType = model.TransactionType;

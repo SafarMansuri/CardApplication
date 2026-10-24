@@ -4,6 +4,7 @@ using CardApplicationAPI.Models;
 using CardApplicationAPI.Models.ResponseModel;
 using CardApplicationAPI.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace CardApplicationAPI.Repositories.Implementations
 {
@@ -16,129 +17,154 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName = null, string? inOut = null)
+        public async Task<PaginatedResult<StockPaymentInfo>> GetAllAsync(PaginationParams pagination, string? partyName, string? inOut, string? paymentType, string? status)
         {
-            var query = _context.StockPaymentInfo
-                .AsNoTracking()
-                .Include(x => x.StockItem)
-                .AsQueryable();
-
+            var query = _context.StockPaymentInfo.AsNoTracking().AsQueryable();
             if (!string.IsNullOrWhiteSpace(partyName))
                 query = query.Where(x => x.PartyName != null && x.PartyName.ToLower() == partyName.Trim().ToLower());
-
             if (!string.IsNullOrWhiteSpace(inOut))
-                query = query.Where(x => x.InOut != null && x.InOut.ToLower() == inOut.Trim().ToLower());
-
+                query = query.Where(x => x.InOut == inOut);
+            if (!string.IsNullOrWhiteSpace(paymentType))
+                query = query.Where(x => x.PaymentType == paymentType);
+            if (!string.IsNullOrWhiteSpace(status))
+                query = query.Where(x => x.PaymentStatus == status);
             var result = await query.OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
             return new PaginatedResult<StockPaymentInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
         public async Task<StockPaymentInfo?> GetByIdAsync(int id)
         {
-            var entity = await _context.StockPaymentInfo
-                .Include(x => x.StockItem)
-                .FirstOrDefaultAsync(x => x.Id == id);
-
+            var entity = await _context.StockPaymentInfo.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
             return entity == null ? null : MapToModel(entity);
         }
 
         public async Task<PaginatedResult<StockPaymentInfo>> GetByStockItemIdAsync(int stockItemId, PaginationParams pagination)
         {
-            var result = await _context.StockPaymentInfo.Where(x => x.StockItemId == stockItemId)
+            var result = await _context.StockPaymentInfo.AsNoTracking().Where(x => x.StockItemId == stockItemId)
                 .OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
             return new PaginatedResult<StockPaymentInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
         }
 
-        public async Task<StockPaymentInfo> CreateAsync(StockPaymentInfo model)
+        public async Task<StockPaymentInfo?> SettleAsync(int id, StockPaymentSettlementRequest request, int userId, string username)
         {
-            var entity = MapToEntity(model);
-            entity.CreatedAt = DateTime.UtcNow;
-            entity.UpdatedAt = DateTime.UtcNow;
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var entity = await _context.StockPaymentInfo
+                .FromSqlInterpolated($"SELECT * FROM [StockPaymentInfo] WITH (UPDLOCK) WHERE [Id] = {id}")
+                .FirstOrDefaultAsync();
+            if (entity == null) return null;
+            if (entity.PaymentStatus == "Completed")
+                throw new InvalidOperationException("Stock payment is already completed.");
+            if (request.Amount != entity.OutstandingAmount)
+                throw new ArgumentException($"Settlement amount must equal the outstanding amount of {entity.OutstandingAmount:0.00}.");
 
-            _context.StockPaymentInfo.Add(entity);
+            var completedAt = DateTime.UtcNow;
+            _context.StockPaymentHistory.Add(new StockPaymentHistoryEntity
+            {
+                StockPaymentInfoId = entity.Id,
+                EventType = "Settlement",
+                Amount = request.Amount,
+                TransactionDate = request.TransactionDate,
+                PaymentMethod = request.PaymentMethod.Trim(),
+                ReferenceNo = request.ReferenceNo?.Trim(),
+                Remarks = request.Remarks?.Trim(),
+                PerformedByUserId = userId,
+                PerformedByUsername = username,
+                CreatedAt = completedAt
+            });
+            entity.PaymentStatus = "Completed";
+            entity.OutstandingAmount = 0m;
+            entity.CompletedAt = completedAt;
+            entity.CompletedByUserId = userId;
+            entity.CompletedByUsername = username;
+            entity.UpdatedAt = completedAt;
             await _context.SaveChangesAsync();
-
+            await transaction.CommitAsync();
             return MapToModel(entity);
         }
 
-        public async Task<StockPaymentInfo> UpdateAsync(StockPaymentInfo model)
+        public async Task<StockPaymentInfo?> ResetAsync(int id, StockPaymentResetRequest request, int userId, string username)
         {
-            var existing = await _context.StockPaymentInfo.FirstOrDefaultAsync(x => x.Id == model.Id);
-            if (existing == null)
-                throw new InvalidOperationException($"Stock payment with ID {model.Id} not found");
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var entity = await _context.StockPaymentInfo
+                .FromSqlInterpolated($"SELECT * FROM [StockPaymentInfo] WITH (UPDLOCK) WHERE [Id] = {id}")
+                .FirstOrDefaultAsync();
+            if (entity == null) return null;
+            await _context.Entry(entity).Reference(x => x.StockItem).LoadAsync();
+            if (entity.PaymentStatus == "Pending")
+                throw new InvalidOperationException("Stock payment is already pending.");
 
-            existing.No = model.No;
-            existing.AccountName = model.AccountName;
-            existing.AccountNo = model.AccountNo;
-            existing.Ifsc = model.Ifsc;
-            existing.Amount = model.Amount;
-            existing.Date = model.Date;
-            existing.PartyName = model.PartyName;
-            existing.Bank = model.Bank;
-            existing.InOut = model.InOut;
-            existing.Remarks = model.Remarks;
-            existing.StockItemId = model.StockItemId;
-            existing.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            return MapToModel(existing);
-        }
-
-        public async Task<bool> DeleteAsync(int id)
-        {
-            var entity = await _context.StockPaymentInfo.FirstOrDefaultAsync(x => x.Id == id);
-            if (entity == null) return false;
-
-            _context.StockPaymentInfo.Remove(entity);
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> ExistsAsync(int id)
-        {
-            return await _context.StockPaymentInfo.AnyAsync(x => x.Id == id);
-        }
-
-        private static StockPaymentInfo MapToModel(StockPaymentInfoEntity entity)
-        {
-            return new StockPaymentInfo
+            var resetAt = DateTime.UtcNow;
+            _context.StockPaymentHistory.Add(new StockPaymentHistoryEntity
             {
-                Id = entity.Id,
-                No = entity.No,
-                AccountName = entity.AccountName,
-                AccountNo = entity.AccountNo,
-                Ifsc = entity.Ifsc,
-                Amount = entity.Amount,
-                Date = entity.Date,
-                PartyName = entity.PartyName,
-                Bank = entity.Bank,
-                InOut = entity.InOut,
-                Remarks = entity.Remarks,
-                StockItemId = entity.StockItemId,
-                CreatedAt = entity.CreatedAt,
-                UpdatedAt = entity.UpdatedAt
+                StockPaymentInfoId = entity.Id,
+                EventType = "Reset",
+                Amount = entity.Amount ?? 0m,
+                TransactionDate = resetAt,
+                Remarks = request.Reason.Trim(),
+                PerformedByUserId = userId,
+                PerformedByUsername = username,
+                CreatedAt = resetAt
+            });
+            entity.PaymentStatus = "Pending";
+            entity.OutstandingAmount = entity.StockItem?.Amount ?? entity.Amount ?? 0m;
+            entity.CompletedAt = null;
+            entity.CompletedByUserId = null;
+            entity.CompletedByUsername = null;
+            entity.UpdatedAt = resetAt;
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return MapToModel(entity);
+        }
+
+        public async Task<PaginatedResult<StockPaymentHistory>> GetHistoryAsync(int id, PaginationParams pagination)
+        {
+            var result = await _context.StockPaymentHistory.AsNoTracking().Where(x => x.StockPaymentInfoId == id)
+                .OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            return new PaginatedResult<StockPaymentHistory>
+            {
+                Items = result.Items.Select(x => new StockPaymentHistory
+                {
+                    Id = x.Id, StockPaymentInfoId = x.StockPaymentInfoId, EventType = x.EventType, Amount = x.Amount,
+                    TransactionDate = x.TransactionDate, PaymentMethod = x.PaymentMethod, ReferenceNo = x.ReferenceNo,
+                    Remarks = x.Remarks, PerformedByUserId = x.PerformedByUserId,
+                    PerformedByUsername = x.PerformedByUsername, CreatedAt = x.CreatedAt
+                }),
+                Pagination = result.Pagination
             };
         }
 
-        private static StockPaymentInfoEntity MapToEntity(StockPaymentInfo model)
+        public async Task<PaginatedResult<StockPartyPaymentSummary>> GetPartySummariesAsync(PaginationParams pagination, string? partyName, string? paymentType, string? status)
         {
-            return new StockPaymentInfoEntity
-            {
-                Id = model.Id,
-                No = model.No,
-                AccountName = model.AccountName,
-                AccountNo = model.AccountNo,
-                Ifsc = model.Ifsc,
-                Amount = model.Amount,
-                Date = model.Date,
-                PartyName = model.PartyName,
-                Bank = model.Bank,
-                InOut = model.InOut,
-                Remarks = model.Remarks,
-                StockItemId = model.StockItemId,
-                CreatedAt = model.CreatedAt,
-                UpdatedAt = model.UpdatedAt
-            };
+            var query = _context.StockPaymentInfo.AsNoTracking().Where(x => x.PartyName != null);
+            if (!string.IsNullOrWhiteSpace(partyName)) query = query.Where(x => x.PartyName == partyName.Trim());
+            if (!string.IsNullOrWhiteSpace(paymentType)) query = query.Where(x => x.PaymentType == paymentType);
+            if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.PaymentStatus == status);
+            return await query.GroupBy(x => new { x.PartyName, x.PaymentType })
+                .Select(group => new StockPartyPaymentSummary
+                {
+                    PartyName = group.Key.PartyName!, PaymentType = group.Key.PaymentType, ItemCount = group.Count(),
+                    TotalAmount = group.Sum(x => x.Amount ?? 0m),
+                    CompletedAmount = group.Sum(x => (x.Amount ?? 0m) - x.OutstandingAmount),
+                    OutstandingAmount = group.Sum(x => x.OutstandingAmount)
+                }).OrderBy(x => x.PartyName).ThenBy(x => x.PaymentType).ToPaginatedResultAsync(pagination);
         }
+
+        public async Task<StockPaymentTotals> GetTotalsAsync()
+        {
+            var payable = await _context.StockPaymentInfo.Where(x => x.PaymentType == "Payable").SumAsync(x => (decimal?)x.OutstandingAmount) ?? 0m;
+            var receivable = await _context.StockPaymentInfo.Where(x => x.PaymentType == "Receivable").SumAsync(x => (decimal?)x.OutstandingAmount) ?? 0m;
+            return new StockPaymentTotals(payable, receivable);
+        }
+
+        private static StockPaymentInfo MapToModel(StockPaymentInfoEntity entity) => new()
+        {
+            Id = entity.Id, No = entity.No, AccountName = entity.AccountName, AccountNo = entity.AccountNo,
+            Ifsc = entity.Ifsc, Amount = entity.Amount, Date = entity.Date, PartyName = entity.PartyName,
+            Bank = entity.Bank, InOut = entity.InOut, PaymentType = entity.PaymentType,
+            PaymentStatus = entity.PaymentStatus, OutstandingAmount = entity.OutstandingAmount,
+            CompletedAt = entity.CompletedAt, CompletedByUserId = entity.CompletedByUserId,
+            CompletedByUsername = entity.CompletedByUsername, Remarks = entity.Remarks,
+            StockItemId = entity.StockItemId, CreatedAt = entity.CreatedAt, UpdatedAt = entity.UpdatedAt
+        };
     }
 }

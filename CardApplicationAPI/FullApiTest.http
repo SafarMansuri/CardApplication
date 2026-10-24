@@ -1,0 +1,569 @@
+###############################################################################
+# CardApplicationAPI - FULL API TEST WORKFLOW
+# Run requests top-to-bottom. Login first; every request reuses its token.
+###############################################################################
+
+@host = https://smenterprise101.runasp.net
+@username = master
+@password = Master@123
+@runId = 20261021FULL
+
+###############################################################################
+# SECTION 1 - AUTHENTICATION
+###############################################################################
+
+### 1. Login (captures accessToken + refreshToken)
+# @name login
+POST {{host}}/api/Auth/login
+Content-Type: application/json
+
+{"username":"{{username}}","password":"{{password}}"}
+
+### 2. Refresh token rotation
+POST {{host}}/api/Auth/refresh
+Content-Type: application/json
+
+{"refreshToken":"{{login.response.body.$.refreshToken}}"}
+
+### 3. Seed master user (only works on an EMPTY user table - expect 400 otherwise)
+POST {{host}}/api/Auth/seed
+
+###############################################################################
+# SECTION 2 - USERS  (Admin/Master only)
+###############################################################################
+
+### 4. List users
+GET {{host}}/api/Users?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 5. Create a user
+# @name createUser
+POST {{host}}/api/Users
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "username":"apitest.user.{{runId}}",
+  "password":"Test@12345",
+  "phoneNumber":"9999999999",
+  "fullName":"API Test User",
+  "nickName":"apitest",
+  "additionalInfo":"Created by FullApiTest.http",
+  "role":"User"
+}
+
+@userId = {{createUser.response.body.$.resultObject.id}}
+
+### 6. Get user by ID
+GET {{host}}/api/Users/{{userId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 7. Update user
+PUT {{host}}/api/Users/{{userId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "id":{{userId}},
+  "username":"apitest.user.{{runId}}",
+  "password":"Test@12345",
+  "phoneNumber":"9999999999",
+  "fullName":"API Test User Updated",
+  "nickName":"apitest",
+  "additionalInfo":"Updated",
+  "role":"User"
+}
+
+### 8. Delete user
+DELETE {{host}}/api/Users/{{userId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###############################################################################
+# SECTION 3 - BANK ACCOUNTS
+###############################################################################
+
+### 9. Create bank account A
+# @name createBankA
+POST {{host}}/api/BankAccount
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"accountName":"Test HDFC Current {{runId}}","bankName":"HDFC Bank","accountNo":"50100200001111","isActive":true}
+
+@bankAId = {{createBankA.response.body.$.resultObject.id}}
+
+### 10. Create bank account B
+# @name createBankB
+POST {{host}}/api/BankAccount
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"accountName":"Test ICICI Savings {{runId}}","bankName":"ICICI Bank","accountNo":"60200300002222","isActive":true}
+
+@bankBId = {{createBankB.response.body.$.resultObject.id}}
+
+### 11. List bank accounts
+GET {{host}}/api/BankAccount?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 12. Get bank account by ID
+GET {{host}}/api/BankAccount/{{bankAId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 13. Update bank account
+PUT {{host}}/api/BankAccount/{{bankAId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{bankAId}},"accountName":"Test HDFC Current {{runId}}","bankName":"HDFC Bank","accountNo":"50100200001111","isActive":true}
+
+### 14. Total bank balance
+GET {{host}}/api/BankAccount/summary/total
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 15. Per-account balance summary
+GET {{host}}/api/BankAccount/summary/accounts?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###############################################################################
+# SECTION 4 - BANK TRANSACTIONS
+# TransactionType values: OPENING, IN, OUT, TRANSFER_IN, TRANSFER_OUT
+###############################################################################
+
+### 16. Cash IN to account A
+# @name txnInA
+POST {{host}}/api/BankTransaction
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"accountId":{{bankAId}},"transactionDate":"2026-10-21T09:00:00Z","transactionType":"IN","amount":100000,"referenceNo":"IN-{{runId}}","remarks":"Opening deposit"}
+
+@txnAId = {{txnInA.response.body.$.resultObject.id}}
+
+### 17. Cash OUT from account A
+POST {{host}}/api/BankTransaction
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"accountId":{{bankAId}},"transactionDate":"2026-10-21T09:30:00Z","transactionType":"OUT","amount":10000,"referenceNo":"OUT-{{runId}}","remarks":"Cash withdrawal"}
+
+### 18. Transfer A -> B (creates TRANSFER_OUT + TRANSFER_IN pair)
+POST {{host}}/api/BankTransaction/transfer
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"fromAccountId":{{bankAId}},"toAccountId":{{bankBId}},"transactionDate":"2026-10-21T10:00:00Z","amount":25000,"referenceNo":"TRF-{{runId}}","remarks":"Inter-account transfer"}
+
+### 19. List all bank transactions
+GET {{host}}/api/BankTransaction?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 20. Transactions for account A only
+GET {{host}}/api/BankTransaction/account/{{bankAId}}?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 21. Get single transaction
+GET {{host}}/api/BankTransaction/{{txnAId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 22. Update transaction
+PUT {{host}}/api/BankTransaction/{{txnAId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{txnAId}},"accountId":{{bankAId}},"transactionDate":"2026-10-21T09:00:00Z","transactionType":"IN","amount":100000,"referenceNo":"IN-{{runId}}","remarks":"Opening deposit (edited)"}
+
+### 23. Balance after transactions
+GET {{host}}/api/BankAccount/summary/accounts?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###############################################################################
+# SECTION 5 - CASH LEDGER
+# TransactionType values: OPENING, IN, OUT
+###############################################################################
+
+### 24. Cash IN entry
+# @name cashIn
+POST {{host}}/api/CashLedger
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"transactionDate":"2026-10-21T10:30:00Z","transactionType":"IN","name":"Owner Capital","amount":50000,"remarks":"Cash in - full api test"}
+
+@cashInId = {{cashIn.response.body.$.resultObject.id}}
+
+### 25. Cash OUT entry
+POST {{host}}/api/CashLedger
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"transactionDate":"2026-10-21T11:00:00Z","transactionType":"OUT","name":"Office Expense","amount":5000,"remarks":"Cash out - full api test"}
+
+### 26. List all cash ledger rows
+GET {{host}}/api/CashLedger?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 27. Ledger rows by type
+GET {{host}}/api/CashLedger/type/IN?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 28. Get cash entry by ID
+GET {{host}}/api/CashLedger/{{cashInId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 29. Update cash entry
+PUT {{host}}/api/CashLedger/{{cashInId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{cashInId}},"transactionDate":"2026-10-21T10:30:00Z","transactionType":"IN","name":"Owner Capital","amount":50000,"remarks":"Cash in - edited"}
+
+### 30. Cash summaries
+GET {{host}}/api/CashLedger/summary/opening
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/CashLedger/summary/in
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/CashLedger/summary/out
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/CashLedger/summary/current
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###############################################################################
+# SECTION 6 - CARD INFO (swipes) + PARTY PAYMENT SETTLEMENT
+###############################################################################
+
+### 31. Create card swipe 1
+# @name swipe1
+POST {{host}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "cardName":"HDFC Regalia",
+  "cardNumber":"CARD-{{runId}}-001",
+  "imei":"359000000000001",
+  "partyName":"Card Party FullTest {{runId}}",
+  "deduction":40000,
+  "profit":800,
+  "date":"2026-10-21T12:00:00Z",
+  "pos":"POS-01",
+  "model":"Pax A920",
+  "swipePerson":"Staff A",
+  "merchant":"Merchant One",
+  "remarks":"Swipe 1",
+  "bankName":"HDFC",
+  "limitUsed":false
+}
+
+@swipe1Id = {{swipe1.response.body.$.resultObject.id}}
+
+### 32. Create card swipe 2 (same party -> same PaymentInfo summary)
+# @name swipe2
+POST {{host}}/api/CardInfo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "cardName":"ICICI AmazonPay",
+  "cardNumber":"CARD-{{runId}}-002",
+  "partyName":"Card Party FullTest {{runId}}",
+  "deduction":60000,
+  "profit":1200,
+  "date":"2026-10-21T12:30:00Z",
+  "pos":"POS-02",
+  "swipePerson":"Staff B",
+  "merchant":"Merchant Two",
+  "remarks":"Swipe 2",
+  "bankName":"ICICI",
+  "limitUsed":false
+}
+
+@swipe2Id = {{swipe2.response.body.$.resultObject.id}}
+
+### 33. List card swipes
+GET {{host}}/api/CardInfo?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 34. Get swipe by ID
+GET {{host}}/api/CardInfo/{{swipe1Id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 35. Update swipe 1 (allowed while unsettled)
+PUT {{host}}/api/CardInfo/{{swipe1Id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "id":{{swipe1Id}},
+  "cardName":"HDFC Regalia",
+  "cardNumber":"CARD-{{runId}}-001",
+  "partyName":"Card Party FullTest {{runId}}",
+  "deduction":40000,
+  "profit":900,
+  "date":"2026-10-21T12:00:00Z",
+  "pos":"POS-01",
+  "swipePerson":"Staff A",
+  "merchant":"Merchant One",
+  "remarks":"Swipe 1 - edited",
+  "bankName":"HDFC",
+  "limitUsed":false
+}
+
+### 36. PaymentInfo for this party (TotalAmount=100000, Pending)
+# @name partySummary
+GET {{host}}/api/PaymentInfo?partyName=Card%20Party%20FullTest%20{{runId}}&status=Pending&pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+@paymentInfoId = {{partySummary.response.body.$.resultObject.items[0].id}}
+
+### 37. PaymentInfo filters
+GET {{host}}/api/PaymentInfo?status=Pending&pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/PaymentInfo?status=Paid&pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 38. Mark party summary PAID (Admin/Master; settles all pending swipes)
+PATCH {{host}}/api/PaymentInfo/{{paymentInfoId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 39. Settled swipe update -> expect 409 Conflict
+PUT {{host}}/api/CardInfo/{{swipe1Id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{swipe1Id}},"cardName":"HDFC Regalia","cardNumber":"CARD-{{runId}}-001","partyName":"Card Party FullTest {{runId}}","deduction":99999,"date":"2026-10-21T12:00:00Z"}
+
+### 40. Settled swipe delete -> expect 409 Conflict
+DELETE {{host}}/api/CardInfo/{{swipe1Id}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 41. Repeat mark-paid -> expect 409 (already paid)
+PATCH {{host}}/api/PaymentInfo/{{paymentInfoId}}/mark-paid
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###############################################################################
+# SECTION 7 - STOCK ITEMS + STOCK PAYABLE / RECEIVABLE
+###############################################################################
+
+### 42. Create IN stock -> Pending Payable to supplier (PartyName)
+# @name stockIn
+POST {{host}}/api/StockItem
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "no":"STK-IN-{{runId}}",
+  "inDate":"2026-10-21T09:00:00Z",
+  "imei":"869900000000201",
+  "colour":"Black",
+  "model":"Galaxy FullTest",
+  "gstMrp":85000,
+  "amount":70000,
+  "partyName":"Supplier FullTest {{runId}}",
+  "payment":"Bank",
+  "inOut":"IN",
+  "status":"Available",
+  "remarks":"IN payable test"
+}
+
+@stockInId = {{stockIn.response.body.$.resultObject.id}}
+
+### 43. Create OUT stock -> Pending Receivable from buyer (SoldTo)
+# @name stockOut
+POST {{host}}/api/StockItem
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "no":"STK-OUT-{{runId}}",
+  "outDate":"2026-10-21T10:00:00Z",
+  "imei":"869900000000202",
+  "colour":"Blue",
+  "model":"iPhone FullTest",
+  "gstMrp":110000,
+  "amount":95000,
+  "partyName":"Supplier FullTest {{runId}}",
+  "payment":"UPI",
+  "inOut":"OUT",
+  "status":"Sold",
+  "soldTo":"Buyer FullTest {{runId}}",
+  "remarks":"OUT receivable test"
+}
+
+@stockOutId = {{stockOut.response.body.$.resultObject.id}}
+
+### 44. StockItem list + filters
+GET {{host}}/api/StockItem?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/StockItem/{{stockInId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/StockItem/by-party/Supplier%20FullTest%20{{runId}}?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/StockItem/by-status/Available?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/StockItem/by-inout/IN?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###############################################################################
+# SECTION 8 - STOCK PAYMENT INFO (settle, reset, history, summaries)
+###############################################################################
+
+### 45. All stock payments + classification filters
+GET {{host}}/api/StockPaymentInfo?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/StockPaymentInfo?paymentType=Payable&status=Pending&pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/StockPaymentInfo?paymentType=Receivable&status=Pending&pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 46. Payment row for IN stock -> Payable, outstanding 70000
+# @name payableRow
+GET {{host}}/api/StockPaymentInfo/stock/{{stockInId}}?pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+@payableId = {{payableRow.response.body.$.resultObject.items[0].id}}
+
+### 47. Payment row for OUT stock -> Receivable, outstanding 95000
+# @name receivableRow
+GET {{host}}/api/StockPaymentInfo/stock/{{stockOutId}}?pageNumber=1&pageSize=10
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+@receivableId = {{receivableRow.response.body.$.resultObject.items[0].id}}
+
+### 48. Get payment by ID
+GET {{host}}/api/StockPaymentInfo/{{payableId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 49. Party-wise summaries
+GET {{host}}/api/StockPaymentInfo/summary/parties?pageNumber=1&pageSize=50
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###
+GET {{host}}/api/StockPaymentInfo/summary/parties?paymentType=Payable
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 50. Overall pending totals
+GET {{host}}/api/StockPaymentInfo/summary/totals
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 51. Settle payable with WRONG amount -> expect 400
+PATCH {{host}}/api/StockPaymentInfo/{{payableId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":1,"transactionDate":"2026-10-21T13:00:00Z","paymentMethod":"Cash","referenceNo":"WRONG-{{runId}}","remarks":"Should fail"}
+
+### 52. Settle payable with EXACT amount (70000) -> Completed
+PATCH {{host}}/api/StockPaymentInfo/{{payableId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":70000,"transactionDate":"2026-10-21T13:00:00Z","paymentMethod":"Bank","referenceNo":"SET-PAY-{{runId}}","remarks":"Supplier paid in full"}
+
+### 53. Settle receivable with EXACT amount (95000)
+PATCH {{host}}/api/StockPaymentInfo/{{receivableId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":95000,"transactionDate":"2026-10-21T13:30:00Z","paymentMethod":"UPI","referenceNo":"SET-REC-{{runId}}","remarks":"Buyer payment received"}
+
+### 54. Duplicate settle -> expect 409
+PATCH {{host}}/api/StockPaymentInfo/{{payableId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":70000,"transactionDate":"2026-10-21T13:00:00Z","paymentMethod":"Bank","referenceNo":"DUP","remarks":"Should fail"}
+
+### 55. Financial edit on completed stock -> expect 409
+PUT {{host}}/api/StockItem/{{stockInId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{stockInId}},"no":"STK-IN-{{runId}}","inOut":"IN","amount":99999,"partyName":"Supplier FullTest {{runId}}","status":"Available"}
+
+### 56. Descriptive edit on completed stock -> allowed
+PUT {{host}}/api/StockItem/{{stockInId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"id":{{stockInId}},"no":"STK-IN-{{runId}}","inOut":"IN","amount":70000,"partyName":"Supplier FullTest {{runId}}","status":"Available","colour":"Grey","remarks":"Colour corrected"}
+
+### 57. Delete stock with completed payment -> expect 409
+DELETE {{host}}/api/StockItem/{{stockInId}}
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 58. Payment history (Settlement event recorded)
+GET {{host}}/api/StockPaymentInfo/{{payableId}}/history?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 59. Reset payable back to Pending (Admin/Master; logged as Reset)
+PATCH {{host}}/api/StockPaymentInfo/{{payableId}}/reset
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"reason":"Settlement reversed for {{runId}} retest"}
+
+### 60. History again -> Settlement + Reset events
+GET {{host}}/api/StockPaymentInfo/{{payableId}}/history?pageNumber=1&pageSize=20
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 61. Re-settle after reset
+PATCH {{host}}/api/StockPaymentInfo/{{payableId}}/settle
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{"amount":70000,"transactionDate":"2026-10-21T14:00:00Z","paymentMethod":"Bank","referenceNo":"RESETTLE-{{runId}}","remarks":"Paid again after reset"}
+
+###############################################################################
+# SECTION 9 - DASHBOARD (final consolidated view)
+###############################################################################
+
+### 62. Dashboard summary
+# Fields: totalBankBalance, totalAvailableCash, totalSwipes, totalPartyProfit,
+# totalStockItems, totalPendingPartyPayment, availableStockCount,
+# availableStockValue, pendingStockPayable, pendingStockReceivable
+GET {{host}}/api/Dashboard/summary
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+###############################################################################
+# SECTION 10 - OPTIONAL CLEANUP + LOGOUT
+###############################################################################
+
+### 63. Delete test rows (commented - completed/settled records must be reset first)
+# DELETE {{host}}/api/BankTransaction/{{txnAId}}
+# Authorization: Bearer {{login.response.body.$.accessToken}}
+#
+# DELETE {{host}}/api/BankAccount/{{bankAId}}
+# Authorization: Bearer {{login.response.body.$.accessToken}}
+#
+# DELETE {{host}}/api/BankAccount/{{bankBId}}
+# Authorization: Bearer {{login.response.body.$.accessToken}}
+#
+# DELETE {{host}}/api/CashLedger/{{cashInId}}
+# Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 64. Logout (revokes refresh token)
+POST {{host}}/api/Auth/logout
+Content-Type: application/json
+
+{"refreshToken":"{{login.response.body.$.refreshToken}}"}

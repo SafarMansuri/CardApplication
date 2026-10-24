@@ -52,7 +52,7 @@ namespace CardApplicationAPI.Repositories.Implementations
         {
             var existing = await _context.BankAccounts.FirstOrDefaultAsync(x => x.Id == model.Id);
             if (existing == null)
-                throw new InvalidOperationException($"Bank account with ID {model.Id} not found");
+                throw new KeyNotFoundException($"Bank account with ID {model.Id} not found");
 
             existing.AccountName = model.AccountName.Trim();
             existing.BankName = model.BankName.Trim();

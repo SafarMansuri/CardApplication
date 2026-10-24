@@ -48,7 +48,9 @@ namespace CardApplicationAPI.Repositories.Implementations
         public async Task<StockPaymentInfo?> SettleAsync(int id, StockPaymentSettlementRequest request, int userId, string username)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var entity = await _context.StockPaymentInfo.FirstOrDefaultAsync(x => x.Id == id);
+            var entity = await _context.StockPaymentInfo
+                .FromSqlInterpolated($"SELECT * FROM [StockPaymentInfo] WITH (UPDLOCK) WHERE [Id] = {id}")
+                .FirstOrDefaultAsync();
             if (entity == null) return null;
             if (entity.PaymentStatus == "Completed")
                 throw new InvalidOperationException("Stock payment is already completed.");
@@ -83,8 +85,11 @@ namespace CardApplicationAPI.Repositories.Implementations
         public async Task<StockPaymentInfo?> ResetAsync(int id, StockPaymentResetRequest request, int userId, string username)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var entity = await _context.StockPaymentInfo.Include(x => x.StockItem).FirstOrDefaultAsync(x => x.Id == id);
+            var entity = await _context.StockPaymentInfo
+                .FromSqlInterpolated($"SELECT * FROM [StockPaymentInfo] WITH (UPDLOCK) WHERE [Id] = {id}")
+                .FirstOrDefaultAsync();
             if (entity == null) return null;
+            await _context.Entry(entity).Reference(x => x.StockItem).LoadAsync();
             if (entity.PaymentStatus == "Pending")
                 throw new InvalidOperationException("Stock payment is already pending.");
 

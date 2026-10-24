@@ -63,6 +63,8 @@ Response:
 
 Refresh an expired or near-expired access token.
 
+Rotation revokes the old refresh token and creates its replacement atomically. Concurrent refresh requests using the same old token permit only one successful rotation; the other request returns HTTP 401. Save the returned replacement token and use it for later refresh/logout requests.
+
 Request body:
 
 ```json
@@ -74,6 +76,8 @@ Request body:
 ### POST /api/Auth/logout
 
 Revoke a refresh token.
+
+Use the latest refresh token after rotation. Logout does not invalidate an already-issued access JWT before its expiry.
 
 Request body:
 
@@ -192,6 +196,8 @@ Get one card record by ID.
 ### POST /api/CardInfo
 
 Create card info record.
+
+`bankName` is required and limited to 50 characters, matching the database constraint. Missing, blank, or oversized values return HTTP 400 rather than a database error.
 
 Request body example:
 
@@ -486,7 +492,7 @@ Update the account details and active status. The route `id` must match the body
 
 ### DELETE /api/BankAccount/{id}
 
-Delete an account. Its own bank transactions are configured to be deleted with it. A referenced related account can prevent deletion while a transaction still refers to it.
+Delete an account. Its own bank transactions are deleted, and references to it from other accounts' transactions are set to null in the same transaction. This retains the current deletion policy; it is not an accounting reversal.
 
 ### GET /api/BankAccount/summary/total
 
@@ -605,7 +611,7 @@ Authentication endpoints return their own JSON response shapes (for example, log
 - 404 = Resource not found
 - 409 = Conflict, such as a duplicate username
 
-For paginated list endpoints, invalid paging values return HTTP 400. The maximum supported `pageSize` is 100. The User and CardInfo endpoints return HTTP status codes corresponding to their result status (including 400 validation failures and 404 missing records); User creation returns HTTP 201 when successful.
+For paginated list endpoints, invalid paging values return HTTP 400. The maximum supported `pageSize` is 100. Business controllers, including bank accounts, bank transactions, and cash ledger, propagate result statuses (including 400 validation failures and 404 missing records). Duplicate bank-account names return 409. Successful creation returns HTTP 201 with `statusCode: 200` in the response envelope. Framework validation and authentication responses may use a different shape.
 - 404 = Not found
 - 500 = Server error
 

@@ -63,6 +63,9 @@ namespace CardApplicationAPI.Repositories.Implementations
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                await _context.StockPaymentInfo
+                    .FromSqlInterpolated($"SELECT * FROM [StockPaymentInfo] WITH (UPDLOCK, HOLDLOCK) WHERE [StockItemId] = {model.Id}")
+                    .LoadAsync();
                 var existing = await _context.StockItems
                     .Include(x => x.PaymentInfo)
                     .FirstOrDefaultAsync(x => x.Id == model.Id);
@@ -110,6 +113,9 @@ namespace CardApplicationAPI.Repositories.Implementations
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                await _context.StockPaymentInfo
+                    .FromSqlInterpolated($"SELECT * FROM [StockPaymentInfo] WITH (UPDLOCK, HOLDLOCK) WHERE [StockItemId] = {id}")
+                    .LoadAsync();
                 var entity = await _context.StockItems
                     .Include(x => x.PaymentInfo)
                     .FirstOrDefaultAsync(x => x.Id == id);

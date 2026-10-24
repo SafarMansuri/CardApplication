@@ -81,6 +81,8 @@ namespace CardApplicationAPI.Services.Implementations
         {
             if (string.IsNullOrWhiteSpace(model.CardName) || string.IsNullOrWhiteSpace(model.CardNumber) || string.IsNullOrWhiteSpace(model.PartyName))
                 return "CardName, CardNumber, and PartyName are required.";
+            if (string.IsNullOrWhiteSpace(model.BankName) || model.BankName.Length > 50)
+                return "BankName is required and cannot exceed 50 characters.";
             if (model.Deduction < 0 || model.Profit < 0)
                 return "Deduction and Profit cannot be negative.";
             return null;

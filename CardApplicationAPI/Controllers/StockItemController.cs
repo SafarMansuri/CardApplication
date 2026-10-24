@@ -66,7 +66,7 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<bool>>> Update(int id, [FromBody] StockItem model)
         {
             if (id != model.Id)
-                return BadRequest(FactoryResponse<bool>.CreateFail("Stock item ID mismatch."));
+                return BadRequest(FactoryResponse<bool>.CreateFail("Stock item ID mismatch.", ApplicationActionStatusCodes.BadRequest));
 
             var result = await _service.UpdateAsync(model);
             return StatusCode((int)result.StatusCode, result);

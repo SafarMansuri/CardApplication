@@ -24,7 +24,7 @@ namespace CardApplicationAPI.Services.Implementations
         {
             var item = await _repository.GetByIdAsync(id);
             if (item == null)
-                return FactoryResponse<BankTransaction?>.CreateFail("Bank transaction not found.");
+                return FactoryResponse<BankTransaction?>.CreateFail("Bank transaction not found.", ApplicationActionStatusCodes.NotFound);
 
             return FactoryResponse<BankTransaction?>.CreateSuccess(item, "Bank transaction retrieved successfully.");
         }
@@ -41,18 +41,18 @@ namespace CardApplicationAPI.Services.Implementations
         public async Task<InternalActionResult<BankTransaction>> AddAsync(BankTransaction model)
         {
             if (model.AccountId <= 0)
-                return FactoryResponse<BankTransaction>.CreateFail("Account id is required.");
+                return FactoryResponse<BankTransaction>.CreateFail("Account id is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             var normalizedType = model.TransactionType?.Trim();
             if (string.IsNullOrWhiteSpace(normalizedType))
-                return FactoryResponse<BankTransaction>.CreateFail("Transaction type is required.");
+                return FactoryResponse<BankTransaction>.CreateFail("Transaction type is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             normalizedType = normalizedType.ToUpperInvariant();
             if (normalizedType != "OPENING" && normalizedType != "IN" && normalizedType != "OUT" && normalizedType != "TRANSFER_IN" && normalizedType != "TRANSFER_OUT")
-                return FactoryResponse<BankTransaction>.CreateFail("Transaction type must be OPENING, IN, OUT, TRANSFER_IN, or TRANSFER_OUT.");
+                return FactoryResponse<BankTransaction>.CreateFail("Transaction type must be OPENING, IN, OUT, TRANSFER_IN, or TRANSFER_OUT.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (model.Amount <= 0)
-                return FactoryResponse<BankTransaction>.CreateFail("Amount must be greater than zero.");
+                return FactoryResponse<BankTransaction>.CreateFail("Amount must be greater than zero.", ApplicationActionStatusCodes.ValidationFailed);
 
             model.TransactionType = normalizedType;
             var created = await _repository.CreateAsync(model);
@@ -77,21 +77,21 @@ namespace CardApplicationAPI.Services.Implementations
         public async Task<InternalActionResult<bool>> UpdateAsync(BankTransaction model)
         {
             if (model.Id <= 0)
-                return FactoryResponse<bool>.CreateFail("Bank transaction id is invalid.");
+                return FactoryResponse<bool>.CreateFail("Bank transaction id is invalid.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (model.AccountId <= 0)
-                return FactoryResponse<bool>.CreateFail("Account id is required.");
+                return FactoryResponse<bool>.CreateFail("Account id is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             var normalizedType = model.TransactionType?.Trim();
             if (string.IsNullOrWhiteSpace(normalizedType))
-                return FactoryResponse<bool>.CreateFail("Transaction type is required.");
+                return FactoryResponse<bool>.CreateFail("Transaction type is required.", ApplicationActionStatusCodes.ValidationFailed);
 
             normalizedType = normalizedType.ToUpperInvariant();
             if (normalizedType != "OPENING" && normalizedType != "IN" && normalizedType != "OUT" && normalizedType != "TRANSFER_IN" && normalizedType != "TRANSFER_OUT")
-                return FactoryResponse<bool>.CreateFail("Transaction type must be OPENING, IN, OUT, TRANSFER_IN, or TRANSFER_OUT.");
+                return FactoryResponse<bool>.CreateFail("Transaction type must be OPENING, IN, OUT, TRANSFER_IN, or TRANSFER_OUT.", ApplicationActionStatusCodes.ValidationFailed);
 
             if (model.Amount <= 0)
-                return FactoryResponse<bool>.CreateFail("Amount must be greater than zero.");
+                return FactoryResponse<bool>.CreateFail("Amount must be greater than zero.", ApplicationActionStatusCodes.ValidationFailed);
 
             model.TransactionType = normalizedType;
             await _repository.UpdateAsync(model);
@@ -102,7 +102,7 @@ namespace CardApplicationAPI.Services.Implementations
         {
             var deleted = await _repository.DeleteAsync(id);
             if (!deleted)
-                return FactoryResponse<bool>.CreateFail("Bank transaction not found.");
+                return FactoryResponse<bool>.CreateFail("Bank transaction not found.", ApplicationActionStatusCodes.NotFound);
 
             return FactoryResponse<bool>.CreateSuccess(true, "Bank transaction deleted successfully.");
         }

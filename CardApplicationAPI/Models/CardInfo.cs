@@ -40,6 +40,7 @@ namespace CardApplicationAPI.Models
         public bool limitUsed { get; set; }
         public string? AdditionalInfo { get; set; }
 
+        [Required, StringLength(50)]
         public string? BankName { get; set; }
 
         public bool IsSettled { get; set; }

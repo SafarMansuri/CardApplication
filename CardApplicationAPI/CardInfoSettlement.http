@@ -97,9 +97,9 @@ GET {{host}}/api/PaymentInfo?pageNumber=1&pageSize=10&partyName={{partyAEncoded}
 Authorization: Bearer {{login.response.body.$.accessToken}}
 Accept: application/json
 
-@partyASummaryId = {{partyASummaryBeforePayment.response.body.$.resultObject.items[0].id}}  10 11
-@partyASwipe1Id = {{partyASwipe1.response.body.$.resultObject.id}}10
-@partyASwipe2Id = {{partyASwipe2.response.body.$.resultObject.id}}11
+@partyASummaryId = {{partyASummaryBeforePayment.response.body.$.resultObject.items[0].id}} 12 13
+@partyASwipe1Id = {{partyASwipe1.response.body.$.resultObject.id}}12
+@partyASwipe2Id = {{partyASwipe2.response.body.$.resultObject.id}}13
 
 ### 6. Read Party B summary
 # Expected: totalAmount=1500, totalProfit=225, pendingAmount=1500, status=Pending.

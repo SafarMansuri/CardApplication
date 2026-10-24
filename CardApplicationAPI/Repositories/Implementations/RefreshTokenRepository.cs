@@ -35,6 +35,24 @@ namespace CardApplicationAPI.Repositories.Implementations
             await _context.SaveChangesAsync();
         }
 
+        public async Task<bool> TryRotateAsync(RefreshTokenEntity current, RefreshTokenEntity replacement)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var now = DateTime.UtcNow;
+            var changed = await _context.RefreshTokens
+                .Where(x => x.Id == current.Id && x.RevokedAt == null && x.ExpiresAt > now)
+                .ExecuteUpdateAsync(update => update
+                    .SetProperty(x => x.RevokedAt, (DateTime?)now)
+                    .SetProperty(x => x.ReplacedByToken, replacement.Token));
+            if (changed != 1)
+                return false;
+
+            _context.RefreshTokens.Add(replacement);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return true;
+        }
+
         public async Task RemoveExpiredAsync()
         {
             var expired = await _context.RefreshTokens

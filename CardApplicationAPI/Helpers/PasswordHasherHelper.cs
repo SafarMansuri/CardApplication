@@ -17,8 +17,15 @@ namespace CardApplicationAPI.Helpers
             if (string.IsNullOrEmpty(hashedPassword) || string.IsNullOrEmpty(providedPassword))
                 return false;
 
-            var result = _passwordHasher.VerifyHashedPassword(new Users(), hashedPassword, providedPassword);
-            return result == PasswordVerificationResult.Success || result == PasswordVerificationResult.SuccessRehashNeeded;
+            try
+            {
+                var result = _passwordHasher.VerifyHashedPassword(new Users(), hashedPassword, providedPassword);
+                return result == PasswordVerificationResult.Success || result == PasswordVerificationResult.SuccessRehashNeeded;
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
         }
     }
 }

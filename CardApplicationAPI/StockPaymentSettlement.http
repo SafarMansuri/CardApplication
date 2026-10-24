@@ -55,8 +55,8 @@ Content-Type: application/json
   "remarks":"Buyer receivable test"
 }
 
-@inStockId = {{createInStock.response.body.$.resultObject.id}}   - 7
-@outStockId = {{createOutStock.response.body.$.resultObject.id}}  - 8
+@inStockId = {{createInStock.response.body.$.resultObject.id}}   - 9
+@outStockId = {{createOutStock.response.body.$.resultObject.id}}  - 10
 
 ### 4. Read IN payment and capture ID
 # Expected: Payable, Pending, partyName=supplier, outstandingAmount=70000.

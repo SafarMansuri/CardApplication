@@ -51,7 +51,7 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<bool>>> Update(int id, [FromBody] Users user)
         {
             if (id != user.Id)
-                return BadRequest(FactoryResponse<bool>.CreateFail("User ID mismatch."));
+                return BadRequest(FactoryResponse<bool>.CreateFail("User ID mismatch.", ApplicationActionStatusCodes.BadRequest));
 
             var result = await _service.UpdateAsync(user);
             return StatusCode((int)result.StatusCode, result);

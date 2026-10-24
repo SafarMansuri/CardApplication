@@ -16,6 +16,7 @@ namespace CardApplicationAPI.Services.Implementations
         public async Task<InternalActionResult<PaginatedResult<Users>>> GetAllAsync(PaginationParams pagination)
         {
             var result = await _repository.GetAllAsync(pagination);
+            result.Items = result.Items.ToList();
             foreach (var user in result.Items)
                 user.Password = string.Empty;
             return FactoryResponse<PaginatedResult<Users>>.CreateSuccess(result, "Users retrieved successfully.");
@@ -25,7 +26,7 @@ namespace CardApplicationAPI.Services.Implementations
         {
             var user = await _repository.GetByIdAsync(id);
             if (user == null)
-                return FactoryResponse<Users?>.CreateFail("User not found.");
+                return FactoryResponse<Users?>.CreateFail("User not found.", ApplicationActionStatusCodes.NotFound);
 
             user.Password = string.Empty;
 

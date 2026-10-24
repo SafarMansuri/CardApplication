@@ -68,13 +68,13 @@ namespace CardApplicationAPI.Repositories.Implementations
 
             var accountExists = await _context.BankAccounts.AnyAsync(x => x.Id == model.AccountId);
             if (!accountExists)
-                throw new InvalidOperationException($"Bank account with ID {model.AccountId} not found");
+                throw new KeyNotFoundException($"Bank account with ID {model.AccountId} not found");
 
             if (model.RelatedAccountId.HasValue)
             {
                 var relatedExists = await _context.BankAccounts.AnyAsync(x => x.Id == model.RelatedAccountId.Value);
                 if (!relatedExists)
-                    throw new InvalidOperationException($"Related bank account with ID {model.RelatedAccountId.Value} not found");
+                    throw new KeyNotFoundException($"Related bank account with ID {model.RelatedAccountId.Value} not found");
             }
 
             if (model.TransactionType == "TRANSFER_OUT")
@@ -97,6 +97,11 @@ namespace CardApplicationAPI.Repositories.Implementations
 
             if (request.FromAccountId == request.ToAccountId)
                 throw new ArgumentException("Source and destination accounts must be different.");
+
+            foreach (var accountId in new[] { request.FromAccountId, request.ToAccountId }.Order())
+                await _context.BankAccounts
+                    .FromSqlInterpolated($"SELECT * FROM [BankAccounts] WITH (UPDLOCK) WHERE [Id] = {accountId}")
+                    .LoadAsync();
 
             var sourceAccount = await _context.BankAccounts
                 .FirstOrDefaultAsync(x => x.Id == request.FromAccountId);
@@ -158,7 +163,7 @@ namespace CardApplicationAPI.Repositories.Implementations
 
             var existing = await _context.BankTransactions.FirstOrDefaultAsync(x => x.Id == model.Id);
             if (existing == null)
-                throw new InvalidOperationException($"Bank transaction with ID {model.Id} not found");
+                throw new KeyNotFoundException($"Bank transaction with ID {model.Id} not found");
 
             if (model.TransactionType == "TRANSFER_OUT")
                 await EnsureSufficientBalanceForTransferOutAsync(model.AccountId, model.Amount, model.Id);

@@ -16,9 +16,27 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<BankAccount>>> GetAllAsync(PaginationParams pagination)
+        private static readonly HashSet<string> AllowedSortFields = new(StringComparer.OrdinalIgnoreCase)
         {
-            var result = await _repository.GetAllAsync(pagination);
+            "id", "accountName", "bankName", "accountNo", "isActive", "createdAt", "updatedAt"
+        };
+
+        public async Task<InternalActionResult<PaginatedResult<BankAccount>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            bool? isActive = null,
+            string? sortBy = null,
+            string? sortDir = null)
+        {
+            sortBy = string.IsNullOrWhiteSpace(sortBy) ? null : sortBy.Trim();
+            if (sortBy != null && !AllowedSortFields.Contains(sortBy))
+                return FactoryResponse<PaginatedResult<BankAccount>>.CreateFail("Invalid sortBy field.", ApplicationActionStatusCodes.ValidationFailed);
+
+            sortDir = string.IsNullOrWhiteSpace(sortDir) ? null : sortDir.Trim().ToLowerInvariant();
+            if (sortDir != null && sortDir != "asc" && sortDir != "desc")
+                return FactoryResponse<PaginatedResult<BankAccount>>.CreateFail("SortDir must be asc or desc.", ApplicationActionStatusCodes.ValidationFailed);
+
+            var result = await _repository.GetAllAsync(pagination, search, isActive, sortBy, sortDir);
             return FactoryResponse<PaginatedResult<BankAccount>>.CreateSuccess(result, "Bank accounts retrieved successfully.");
         }
 
@@ -97,6 +115,12 @@ namespace CardApplicationAPI.Services.Implementations
         {
             var result = await _repository.GetAccountBalanceSummaryAsync(pagination);
             return FactoryResponse<PaginatedResult<BankAccountBalanceSummary>>.CreateSuccess(result, "Bank balances retrieved successfully.");
+        }
+
+        public async Task<InternalActionResult<BankAccountStatusSummary>> GetStatusSummaryAsync()
+        {
+            var result = await _repository.GetStatusSummaryAsync();
+            return FactoryResponse<BankAccountStatusSummary>.CreateSuccess(result, "Bank account status summary retrieved successfully.");
         }
     }
 }

@@ -5,7 +5,12 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface ICashLedgerService
     {
-        Task<InternalActionResult<PaginatedResult<CashLedger>>> GetAllAsync(PaginationParams pagination);
+        Task<InternalActionResult<PaginatedResult<CashLedger>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? transactionType = null,
+            string? sortBy = null,
+            string? sortDir = null);
         Task<InternalActionResult<CashLedger?>> GetByIdAsync(long id);
         Task<InternalActionResult<PaginatedResult<CashLedger>>> GetByTypeAsync(string transactionType, PaginationParams pagination);
         Task<InternalActionResult<CashLedger>> AddAsync(CashLedger model);

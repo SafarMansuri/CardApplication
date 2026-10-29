@@ -20,9 +20,15 @@ namespace CardApplicationAPI.Controllers
 
         // ✅ GET: api/CardInfo
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<PaginatedResult<CardInfo>>>> GetAll([FromQuery] PaginationParams pagination)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<CardInfo>>>> GetAll(
+            [FromQuery] PaginationParams pagination,
+            [FromQuery] string? search = null,
+            [FromQuery] bool? isSettled = null,
+            [FromQuery] bool? limitUsed = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
-            var result = await _service.GetAllAsync(pagination);
+            var result = await _service.GetAllAsync(pagination, search, isSettled, limitUsed, sortBy, sortDir);
             return StatusCode((int)result.StatusCode, result);
         }
 

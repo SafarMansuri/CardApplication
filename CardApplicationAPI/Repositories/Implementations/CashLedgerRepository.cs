@@ -16,13 +16,45 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<CashLedger>> GetAllAsync(PaginationParams pagination)
+        public async Task<PaginatedResult<CashLedger>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? transactionType = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
-            var page = await _context.CashLedger
-                .AsNoTracking()
-                .OrderBy(x => x.TransactionDate)
-                .ThenBy(x => x.Id)
-                .ToPaginatedResultAsync(pagination);
+            var query = _context.CashLedger.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(x =>
+                    (x.Name != null && x.Name.ToLower().Contains(term)) ||
+                    (x.Remarks != null && x.Remarks.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(transactionType))
+                query = query.Where(x => x.TransactionType == transactionType);
+
+            var asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+            query = (sortBy?.ToLowerInvariant()) switch
+            {
+                "id" => asc ? query.OrderBy(x => x.Id) : query.OrderByDescending(x => x.Id),
+                "transactiondate" => asc ? query.OrderBy(x => x.TransactionDate).ThenBy(x => x.Id) : query.OrderByDescending(x => x.TransactionDate).ThenByDescending(x => x.Id),
+                "transactiontype" => asc ? query.OrderBy(x => x.TransactionType).ThenBy(x => x.Id) : query.OrderByDescending(x => x.TransactionType).ThenByDescending(x => x.Id),
+                "name" => asc ? query.OrderBy(x => x.Name).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Name).ThenByDescending(x => x.Id),
+                "amount" => asc ? query.OrderBy(x => x.Amount).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Amount).ThenByDescending(x => x.Id),
+                "remarks" => asc ? query.OrderBy(x => x.Remarks).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Remarks).ThenByDescending(x => x.Id),
+                "createdon" => asc ? query.OrderBy(x => x.CreatedOn).ThenBy(x => x.Id) : query.OrderByDescending(x => x.CreatedOn).ThenByDescending(x => x.Id),
+                "createdby" => asc ? query.OrderBy(x => x.CreatedBy).ThenBy(x => x.Id) : query.OrderByDescending(x => x.CreatedBy).ThenByDescending(x => x.Id),
+                _ => sortDir == "desc"
+                    ? query.OrderByDescending(x => x.TransactionDate).ThenByDescending(x => x.Id)
+                    : sortDir == "asc"
+                        ? query.OrderBy(x => x.TransactionDate).ThenBy(x => x.Id)
+                        : query.OrderByDescending(x => x.TransactionDate).ThenByDescending(x => x.Id)
+            };
+
+            var page = await query.ToPaginatedResultAsync(pagination);
 
             return new PaginatedResult<CashLedger>
             {

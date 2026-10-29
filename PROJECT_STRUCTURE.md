@@ -1,6 +1,6 @@
 # CardApplication Project Structure
 
-Last reviewed against source: 2026-10-23
+Last reviewed against source: 2026-10-29
 
 This is the primary project reference for future development and assistant sessions. Read it first to locate the relevant module, then verify behavior in the current source before changing code. It describes implemented behavior, not proposed features or the migration state of any deployed database. Generated files and machine-specific settings are intentionally excluded.
 
@@ -163,15 +163,15 @@ All controller routes use the `api/[controller]` convention unless noted otherwi
 | Controller | Route | Authorization | Responsibility |
 |---|---|---|---|
 | `AuthController` | `api/Auth` | Anonymous | Login, refresh token rotation, logout, and initial master-user seed |
-| `UsersController` | `api/Users` | `Admin` or `Master` | User CRUD operations |
-| `CardInfoController` | `api/CardInfo` | Authenticated users | Card information CRUD operations |
+| `UsersController` | `api/Users` | `Admin` or `Master` | User CRUD, search/role/sort filters, and `GET summary` role counts |
+| `CardInfoController` | `api/CardInfo` | Authenticated users | Card information CRUD and search/settled/limitUsed/sort filters |
 | `PaymentInfoController` | `api/PaymentInfo` | Authenticated reads; Admin/Master mark-paid | Party summaries and full pending settlement |
-| `StockItemController` | `api/StockItem` | Authenticated users | Stock CRUD; party/status/direction filters |
+| `StockItemController` | `api/StockItem` | Authenticated users | Stock CRUD (including `paymentStatus`); search/status/inOut/sort filters and legacy filter routes |
 | `StockPaymentInfoController` | `api/StockPaymentInfo` | Authenticated reads; Admin/Master settle/reset | Obligations, history, party and overall summaries |
-| `CashLedgerController` | `api/CashLedger` | Authenticated users | Cash CRUD, type filter, opening/in/out/current summaries |
-| `BankAccountController` | `api/BankAccount` | Authenticated users | Account CRUD, total and per-account balances |
-| `BankTransactionController` | `api/BankTransaction` | Authenticated users | Transaction CRUD, account filter, transfers |
-| `DashboardController` | `api/Dashboard` | Authenticated users | `GET summary` aggregate view |
+| `CashLedgerController` | `api/CashLedger` | Authenticated users | Cash CRUD, search/type/sort filters, opening/in/out/current summaries |
+| `BankAccountController` | `api/BankAccount` | Authenticated users | Account CRUD, search/isActive/sort filters, status counts, total and per-account balances |
+| `BankTransactionController` | `api/BankTransaction` | Authenticated users | Transaction CRUD, search/multi-type/sort filters, account filter, transfers |
+| `DashboardController` | `api/Dashboard` | `Admin` or `Master` | `GET summary`, `monthly-flow`, `swipes-daily`, and `top-parties` |
 | `WeatherForecastController` | `/WeatherForecast` | Authenticated users | Template/sample endpoint |
 
 Authentication endpoints include `POST login`, `POST refresh`, `POST logout`, and `POST seed`. User and card controllers expose the expected `GET`, `GET {id}`, `POST`, `PUT {id}`, and `DELETE {id}` operations.
@@ -358,11 +358,19 @@ The current business areas are:
 | `totalSwipes` | CardInfo row count |
 | `totalPartyProfit` | Sum of CardInfo.Profit |
 | `totalPendingPartyPayment` | Sum of PaymentInfo.PendingAmount |
-| `totalStockItems` | Legacy count of IN rows, not available inventory |
+| `totalStockItems` | Total count of all StockItems rows |
 | `availableStockCount` | Stock rows with case-insensitive Available status |
 | `availableStockValue` | Sum of Amount for those Available rows |
 | `pendingStockPayable` | Sum of OutstandingAmount for Payable obligations |
 | `pendingStockReceivable` | Sum of OutstandingAmount for Receivable obligations |
+| `totalCapital` | `totalBankBalance + totalAvailableCash` |
+| `totalOwedToYou` | `pendingStockReceivable` |
+| `totalYouOwe` | `pendingStockPayable + totalPendingPartyPayment` |
+| `netPosition` | `totalOwedToYou - totalYouOwe` |
+| `stockAvailablePct` | `round(availableStockCount / totalStockItems * 100, 1)` (0 when `totalStockItems == 0`) |
+| `accounts` | Per-account `{ accountId, bankName, accountName, currentBalance }` |
+
+Dashboard also exposes `GET /api/Dashboard/monthly-flow`, `GET /api/Dashboard/swipes-daily`, and `GET /api/Dashboard/top-parties` using IST (UTC+05:30) date/month buckets with zero-filling.
 
 ### Response and pagination conventions
 
@@ -462,7 +470,7 @@ dotnet test CardApplication.Tests.sln --no-build --logger trx --results-director
 - Cleanup drops only the exact database created by that fixture, after validating its generated name and disposing hosts/connections. It clears only that database's connection pool, never all application pools. Failed cleanup is reported rather than scanning/deleting databases from other runs.
 - Two unrelated test classes run in parallel to avoid LocalDB connection pressure. Concurrency tests still send simultaneous requests within the same fixture against separate request-scoped DbContexts.
 - The HTTP factory overrides test JWT configuration and the database, retains real authentication/authorization, and checks the resolved database name before requests. There are no production test endpoints or auth bypasses.
-- Coverage includes all 58 current controller method/route pairs, service validation, password serialization/redaction, card/stock settlement cycles, audit claims, bank/cash arithmetic, dashboard totals, bootstrap guards/schema comparison, and targeted concurrency regressions.
+- Coverage includes all 63 current controller method/route pairs, service validation, list search/filtering/sorting, password serialization/redaction, card/stock settlement cycles, audit claims, bank/cash arithmetic, dashboard totals and chart series, bootstrap guards/schema comparison, and targeted concurrency regressions.
 - Use `--filter "FullyQualifiedName~TestName"` for focused iterations. After a production fix, run affected tests and the full suite again on fresh databases. TRX and coverage output live under ignored `bin/`.
 - This is Windows/LocalDB verification, not load testing, a hosted deployment test, or proof that historical migrations can bootstrap a database from zero. The standalone script is the tested initialization path.
 - NuGet currently reports moderate/high advisories for the existing transitive `System.Security.Cryptography.Pkcs` 9.0.11 dependency. Do not suppress these warnings or treat passing functional tests as security clearance.

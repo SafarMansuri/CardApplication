@@ -29,6 +29,33 @@ public sealed class ValidationAndHelpersTests
             (await new BankAccountService(null!).AddAsync(TestData.Account(" "))).StatusCode);
     }
 
+    [Fact]
+    public async Task ListSortAndFilterValidation_RejectsInvalidValuesBeforeRepositoryCall()
+    {
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new CardInfoService(null!).GetAllAsync(new(), sortBy: "bad")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new CardInfoService(null!).GetAllAsync(new(), sortDir: "bad")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new UserService(null!).GetAllAsync(new(), role: "InvalidRole")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new StockItemService(null!).GetAllAsync(new(), status: "Archived")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new StockItemService(null!).GetAllAsync(new(), inOut: "SIDEWAYS")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new CashLedgerService(null!).GetAllAsync(new(), transactionType: "TRANSFER")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new BankAccountService(null!).GetAllAsync(new(), sortBy: "unknown")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new BankTransactionService(null!).GetAllAsync(new(), transactionType: "IN,UNKNOWN")).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new DashboardService(null!).GetMonthlyFlowAsync(0)).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new DashboardService(null!).GetSwipesDailyAsync(366)).StatusCode);
+        Assert.Equal(ApplicationActionStatusCodes.ValidationFailed,
+            (await new DashboardService(null!).GetTopPartiesAsync(51)).StatusCode);
+    }
+
     [Theory]
     [InlineData("", "card", "party")]
     [InlineData("card", " ", "party")]

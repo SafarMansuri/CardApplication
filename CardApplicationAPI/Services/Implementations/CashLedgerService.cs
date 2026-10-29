@@ -14,9 +14,35 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<CashLedger>>> GetAllAsync(PaginationParams pagination)
+        private static readonly HashSet<string> AllowedSortFields = new(StringComparer.OrdinalIgnoreCase)
         {
-            var result = await _repository.GetAllAsync(pagination);
+            "id", "transactionDate", "transactionType", "name", "amount", "remarks", "createdOn", "createdBy"
+        };
+
+        public async Task<InternalActionResult<PaginatedResult<CashLedger>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? transactionType = null,
+            string? sortBy = null,
+            string? sortDir = null)
+        {
+            string? normalizedType = null;
+            if (!string.IsNullOrWhiteSpace(transactionType))
+            {
+                normalizedType = transactionType.Trim().ToUpperInvariant();
+                if (normalizedType is not ("OPENING" or "IN" or "OUT"))
+                    return FactoryResponse<PaginatedResult<CashLedger>>.CreateFail("Transaction type must be OPENING, IN, or OUT.", ApplicationActionStatusCodes.ValidationFailed);
+            }
+
+            sortBy = string.IsNullOrWhiteSpace(sortBy) ? null : sortBy.Trim();
+            if (sortBy != null && !AllowedSortFields.Contains(sortBy))
+                return FactoryResponse<PaginatedResult<CashLedger>>.CreateFail("Invalid sortBy field.", ApplicationActionStatusCodes.ValidationFailed);
+
+            sortDir = string.IsNullOrWhiteSpace(sortDir) ? null : sortDir.Trim().ToLowerInvariant();
+            if (sortDir != null && sortDir != "asc" && sortDir != "desc")
+                return FactoryResponse<PaginatedResult<CashLedger>>.CreateFail("SortDir must be asc or desc.", ApplicationActionStatusCodes.ValidationFailed);
+
+            var result = await _repository.GetAllAsync(pagination, search, normalizedType, sortBy, sortDir);
             return FactoryResponse<PaginatedResult<CashLedger>>.CreateSuccess(result, "Cash ledger retrieved successfully.");
         }
 

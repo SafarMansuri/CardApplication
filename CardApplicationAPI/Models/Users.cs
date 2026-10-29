@@ -33,4 +33,6 @@ namespace CardApplicationAPI.Models
 
 
     }
+
+    public sealed record UserRoleSummary(int Total, int Masters, int Admins, int Users);
 }

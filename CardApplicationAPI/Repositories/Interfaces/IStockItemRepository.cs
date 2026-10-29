@@ -5,7 +5,13 @@ namespace CardApplicationAPI.Repositories.Interfaces
 {
     public interface IStockItemRepository
     {
-        Task<PaginatedResult<StockItem>> GetAllAsync(PaginationParams pagination);
+        Task<PaginatedResult<StockItem>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? status = null,
+            string? inOut = null,
+            string? sortBy = null,
+            string? sortDir = null);
         Task<StockItem?> GetByIdAsync(int id);
         Task<StockItem> CreateAsync(StockItem model);
         Task<StockItem> UpdateAsync(StockItem model);

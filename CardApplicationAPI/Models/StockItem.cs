@@ -35,6 +35,8 @@ namespace CardApplicationAPI.Models
 
         public string? Remarks { get; set; }
 
+        public string PaymentStatus { get; set; } = "Pending";
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

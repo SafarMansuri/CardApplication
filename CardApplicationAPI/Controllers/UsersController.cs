@@ -21,9 +21,21 @@ namespace CardApplicationAPI.Controllers
 
         // ✅ GET: api/users
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<PaginatedResult<Users>>>> GetAll([FromQuery] PaginationParams pagination)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<Users>>>> GetAll(
+            [FromQuery] PaginationParams pagination,
+            [FromQuery] string? search = null,
+            [FromQuery] string? role = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
-            var result = await _service.GetAllAsync(pagination);
+            var result = await _service.GetAllAsync(pagination, search, role, sortBy, sortDir);
+            return StatusCode((int)result.StatusCode, result);
+        }
+
+        [HttpGet("summary")]
+        public async Task<ActionResult<InternalActionResult<UserRoleSummary>>> GetSummary()
+        {
+            var result = await _service.GetSummaryAsync();
             return StatusCode((int)result.StatusCode, result);
         }
 

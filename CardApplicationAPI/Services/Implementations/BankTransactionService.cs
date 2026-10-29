@@ -14,9 +14,29 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetAllAsync(PaginationParams pagination)
+        private static readonly HashSet<string> AllowedTransactionTypes = new(StringComparer.OrdinalIgnoreCase)
         {
-            var result = await _repository.GetAllAsync(pagination);
+            "OPENING", "IN", "OUT", "TRANSFER_IN", "TRANSFER_OUT"
+        };
+
+        private static readonly HashSet<string> AllowedSortFields = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "id", "accountId", "relatedAccountId", "transactionDate", "transactionType",
+            "amount", "referenceNo", "remarks", "createdAt", "updatedAt", "accountName", "bankName"
+        };
+
+        public async Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? transactionType = null,
+            string? sortBy = null,
+            string? sortDir = null)
+        {
+            var validation = ValidateFiltersAndSort(transactionType, ref sortBy, ref sortDir, out var types);
+            if (validation != null)
+                return FactoryResponse<PaginatedResult<BankTransaction>>.CreateFail(validation, ApplicationActionStatusCodes.ValidationFailed);
+
+            var result = await _repository.GetAllAsync(pagination, search, types, sortBy, sortDir);
             return FactoryResponse<PaginatedResult<BankTransaction>>.CreateSuccess(result, "Bank transactions retrieved successfully.");
         }
 
@@ -29,13 +49,54 @@ namespace CardApplicationAPI.Services.Implementations
             return FactoryResponse<BankTransaction?>.CreateSuccess(item, "Bank transaction retrieved successfully.");
         }
 
-        public async Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetByAccountIdAsync(int accountId, PaginationParams pagination)
+        public async Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetByAccountIdAsync(
+            int accountId,
+            PaginationParams pagination,
+            string? search = null,
+            string? transactionType = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
             if (accountId <= 0)
                 return FactoryResponse<PaginatedResult<BankTransaction>>.CreateFail("Account id is invalid.", ApplicationActionStatusCodes.ValidationFailed);
 
-            var result = await _repository.GetByAccountIdAsync(accountId, pagination);
+            var validation = ValidateFiltersAndSort(transactionType, ref sortBy, ref sortDir, out var types);
+            if (validation != null)
+                return FactoryResponse<PaginatedResult<BankTransaction>>.CreateFail(validation, ApplicationActionStatusCodes.ValidationFailed);
+
+            var result = await _repository.GetByAccountIdAsync(accountId, pagination, search, types, sortBy, sortDir);
             return FactoryResponse<PaginatedResult<BankTransaction>>.CreateSuccess(result, "Bank transactions retrieved by account id.");
+        }
+
+        private static string? ValidateFiltersAndSort(
+            string? transactionType,
+            ref string? sortBy,
+            ref string? sortDir,
+            out IReadOnlyCollection<string>? normalizedTypes)
+        {
+            normalizedTypes = null;
+            if (!string.IsNullOrWhiteSpace(transactionType))
+            {
+                var parts = transactionType.Split(',', StringSplitOptions.TrimEntries);
+                var list = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var part in parts)
+                {
+                    if (string.IsNullOrWhiteSpace(part) || !AllowedTransactionTypes.Contains(part))
+                        return "Transaction type must be one or more of OPENING, IN, OUT, TRANSFER_IN, or TRANSFER_OUT.";
+                    list.Add(part.ToUpperInvariant());
+                }
+                normalizedTypes = list.ToArray();
+            }
+
+            sortBy = string.IsNullOrWhiteSpace(sortBy) ? null : sortBy.Trim();
+            if (sortBy != null && !AllowedSortFields.Contains(sortBy))
+                return "Invalid sortBy field.";
+
+            sortDir = string.IsNullOrWhiteSpace(sortDir) ? null : sortDir.Trim().ToLowerInvariant();
+            if (sortDir != null && sortDir != "asc" && sortDir != "desc")
+                return "SortDir must be asc or desc.";
+
+            return null;
         }
 
         public async Task<InternalActionResult<BankTransaction>> AddAsync(BankTransaction model)

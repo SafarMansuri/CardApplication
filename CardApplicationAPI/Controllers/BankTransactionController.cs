@@ -19,9 +19,14 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetAll([FromQuery] PaginationParams pagination)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetAll(
+            [FromQuery] PaginationParams pagination,
+            [FromQuery] string? search = null,
+            [FromQuery] string? transactionType = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
-            var result = await _service.GetAllAsync(pagination);
+            var result = await _service.GetAllAsync(pagination, search, transactionType, sortBy, sortDir);
             return StatusCode((int)result.StatusCode, result);
         }
 
@@ -33,9 +38,15 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet("account/{accountId:int}")]
-        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetByAccountId(int accountId, [FromQuery] PaginationParams pagination)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankTransaction>>>> GetByAccountId(
+            int accountId,
+            [FromQuery] PaginationParams pagination,
+            [FromQuery] string? search = null,
+            [FromQuery] string? transactionType = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
-            var result = await _service.GetByAccountIdAsync(accountId, pagination);
+            var result = await _service.GetByAccountIdAsync(accountId, pagination, search, transactionType, sortBy, sortDir);
             return StatusCode((int)result.StatusCode, result);
         }
 

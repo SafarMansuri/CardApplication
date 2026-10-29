@@ -19,9 +19,14 @@ namespace CardApplicationAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankAccount>>>> GetAll([FromQuery] PaginationParams pagination)
+        public async Task<ActionResult<InternalActionResult<PaginatedResult<BankAccount>>>> GetAll(
+            [FromQuery] PaginationParams pagination,
+            [FromQuery] string? search = null,
+            [FromQuery] bool? isActive = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDir = null)
         {
-            var result = await _service.GetAllAsync(pagination);
+            var result = await _service.GetAllAsync(pagination, search, isActive, sortBy, sortDir);
             return StatusCode((int)result.StatusCode, result);
         }
 
@@ -36,6 +41,13 @@ namespace CardApplicationAPI.Controllers
         public async Task<ActionResult<InternalActionResult<decimal>>> GetTotalBalance()
         {
             var result = await _service.GetTotalBalanceAsync();
+            return StatusCode((int)result.StatusCode, result);
+        }
+
+        [HttpGet("summary/status")]
+        public async Task<ActionResult<InternalActionResult<BankAccountStatusSummary>>> GetStatusSummary()
+        {
+            var result = await _service.GetStatusSummaryAsync();
             return StatusCode((int)result.StatusCode, result);
         }
 

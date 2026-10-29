@@ -119,10 +119,20 @@ Query parameters:
 
 - `pageNumber` (optional, default `1`, minimum `1`)
 - `pageSize` (optional, default `10`, range `1`-`100`)
+- `search` (optional, case-insensitive contains match on `fullName`, `username`, `nickName`)
+- `role` (optional, `Master`, `Admin`, or `User`; invalid values return HTTP 400)
+- `sortBy` (optional, one of `id`, `username`, `fullName`, `nickName`, `phoneNumber`, `role`, `createdat`, `updatedat`; invalid values return HTTP 400)
+- `sortDir` (optional, `asc` or `desc`)
 
-Example: `/api/Users?pageNumber=2&pageSize=25`
+Example: `/api/Users?pageNumber=1&pageSize=25&search=john&role=User&sortBy=username&sortDir=asc`
 
 The response `resultObject` contains `items` and `pagination` metadata (`totalCount`, `pageSize`, `currentPage`, `totalPages`, `hasNext`, `hasPrevious`).
+
+### GET /api/Users/summary
+
+Get user counts grouped by role: `{ total, masters, admins, users }`.
+
+Required role: Admin or Master
 
 ### GET /api/Users/{id}
 
@@ -184,8 +194,13 @@ Query parameters:
 
 - `pageNumber` (optional, default `1`, minimum `1`)
 - `pageSize` (optional, default `10`, range `1`-`100`)
+- `search` (optional, case-insensitive contains match on `partyName`, `cardNumber`, `bankName`, `cardName`)
+- `isSettled` (optional, `true` or `false`)
+- `limitUsed` (optional, `true` or `false`)
+- `sortBy` (optional, one of `id`, `date`, `partyName`, `cardName`, `cardNumber`, `bankName`, `deduction`, `profit`, `pos`, `model`, `swipePerson`, `merchant`, `limitUsed`, `isSettled`, `settledAt`, `createdat`, `updatedat`)
+- `sortDir` (optional, `asc` or `desc`, default `desc`)
 
-Example: `/api/CardInfo?pageNumber=1&pageSize=20`
+Example: `/api/CardInfo?pageNumber=1&pageSize=20&search=hdfc&isSettled=false&sortBy=date&sortDir=desc`
 
 The response `resultObject` contains `items` and `pagination` metadata (`totalCount`, `pageSize`, `currentPage`, `totalPages`, `hasNext`, `hasPrevious`).
 
@@ -273,7 +288,15 @@ Base route: /api/StockItem
 
 ### GET /api/StockItem
 
-Get a paginated list of stock items. Accepts `pageNumber` (default `1`) and `pageSize` (default `10`, maximum `100`). The response uses the common `items` and `pagination` structure.
+Get a paginated list of stock items. Accepts `pageNumber` (default `1`), `pageSize` (default `10`, maximum `100`), plus optional filter and sorting parameters:
+
+- `search` (case-insensitive contains match on `no`, `model`, `imei`, `partyName`, `soldTo`)
+- `status` (`Available`, `Sold`, or `Returned`; invalid values return HTTP 400)
+- `inOut` (`IN` or `OUT`; invalid values return HTTP 400)
+- `sortBy` (`id`, `no`, `inDate`, `outDate`, `imei`, `colour`, `model`, `gstMrp`, `amount`, `partyName`, `payment`, `inOut`, `status`, `soldTo`, `remarks`, `paymentStatus`, `createdAt`, `updatedAt`)
+- `sortDir` (`asc` or `desc`, default `desc`)
+
+Every `StockItem` response includes `paymentStatus` (`Pending` or `Completed`) synchronized from its `StockPaymentInfo` obligation.
 
 ### GET /api/StockItem/{id}
 
@@ -386,7 +409,14 @@ Base route: /api/CashLedger
 
 ### GET /api/CashLedger
 
-Get a paginated list of cash ledger entries, ordered by transaction date and ID ascending. Accepts `pageNumber` (optional, default `1`) and `pageSize` (optional, default `10`, range `1`-`100`). The `resultObject` contains `items` and `pagination` metadata.
+Get a paginated list of cash ledger entries. Accepts `pageNumber` (default `1`), `pageSize` (default `10`, range `1`-`100`), plus optional filter and sort parameters:
+
+- `search` (case-insensitive contains match on `name`, `remarks`)
+- `transactionType` (`OPENING`, `IN`, or `OUT`; invalid values return HTTP 400)
+- `sortBy` (`id`, `transactionDate`, `transactionType`, `name`, `amount`, `remarks`, `createdOn`, `createdBy`)
+- `sortDir` (`asc` or `desc`, default `desc` by transaction date and ID)
+
+The `resultObject` contains `items` and `pagination` metadata.
 
 ### GET /api/CashLedger/{id}
 
@@ -457,7 +487,18 @@ Bank accounts are stored as rows, so adding another account does not require a d
 
 ### GET /api/BankAccount
 
-List bank accounts, including inactive accounts, ordered by account name and ID. Accepts `pageNumber` (optional, default `1`) and `pageSize` (optional, default `10`, range `1`-`100`). The `resultObject` contains `items` and `pagination` metadata.
+List bank accounts, including inactive accounts. Accepts `pageNumber` (default `1`), `pageSize` (default `10`, range `1`-`100`), plus optional filter and sort parameters:
+
+- `search` (case-insensitive contains match on `bankName`, `accountName`, `accountNo`)
+- `isActive` (`true` or `false`)
+- `sortBy` (`id`, `accountName`, `bankName`, `accountNo`, `isActive`, `createdAt`, `updatedAt`)
+- `sortDir` (`asc` or `desc`)
+
+The `resultObject` contains `items` and `pagination` metadata.
+
+### GET /api/BankAccount/summary/status
+
+Return bank account counts by active state: `{ total, active, inactive }`.
 
 ### GET /api/BankAccount/{id}
 
@@ -518,7 +559,14 @@ Bank transactions record all account movements. `amount` must be greater than ze
 
 ### GET /api/BankTransaction
 
-List transactions, newest transaction date and ID first. Accepts `pageNumber` (optional, default `1`) and `pageSize` (optional, default `10`, range `1`-`100`). The `resultObject` contains `items` and `pagination` metadata.
+List transactions, newest transaction date and ID first by default. Accepts `pageNumber` (default `1`), `pageSize` (default `10`, range `1`-`100`), plus optional filter and sort parameters:
+
+- `search` (case-insensitive contains match on `remarks`, `referenceNo`, and the account's or related account's `bankName` / `accountName`)
+- `transactionType` (one or more comma-separated values from `OPENING, IN, OUT, TRANSFER_IN, TRANSFER_OUT`; invalid values return HTTP 400)
+- `sortBy` (`id`, `accountId`, `relatedAccountId`, `transactionDate`, `transactionType`, `amount`, `referenceNo`, `remarks`, `createdAt`, `updatedAt`, `accountName`, `bankName`)
+- `sortDir` (`asc` or `desc`, default `desc`)
+
+The `resultObject` contains `items` and `pagination` metadata.
 
 ### GET /api/BankTransaction/{id}
 
@@ -526,7 +574,7 @@ Get one transaction by ID, including its account and optional related account de
 
 ### GET /api/BankTransaction/account/{accountId}
 
-List transactions belonging to the specified account, newest transaction date and ID first. Accepts `pageNumber` and `pageSize` with the same defaults and limits as `GET /api/BankTransaction`.
+List transactions belonging to the specified account. Supports the same `search`, comma-separated `transactionType`, `sortBy`, `sortDir`, `pageNumber`, and `pageSize` parameters as `GET /api/BankTransaction`.
 
 ### POST /api/BankTransaction
 
@@ -575,9 +623,35 @@ Delete one transaction. The account balance summaries are recalculated from the 
 
 ## Dashboard
 
+Base route: `/api/Dashboard` (Restricted to `Admin` and `Master` roles)
+
 ### GET /api/Dashboard/summary
 
-Returns bank balance, available cash, card swipe/profit values, legacy stock count, and `totalPendingPartyPayment`. It also returns `availableStockCount`, `availableStockValue`, `pendingStockPayable`, and `pendingStockReceivable`. Available inventory uses StockItem rows whose normalized status is `Available`; payable/receivable totals sum outstanding StockPaymentInfo balances.
+Returns consolidated financial and inventory metrics:
+
+- `totalBankBalance`, `totalAvailableCash`, `totalSwipes`, `totalPartyProfit`, `totalStockItems` (count of all `StockItems` rows), `totalPendingPartyPayment`
+- `availableStockCount`, `availableStockValue`, `pendingStockPayable`, `pendingStockReceivable`
+- `totalCapital` (`totalBankBalance + totalAvailableCash`)
+- `totalOwedToYou` (`pendingStockReceivable`)
+- `totalYouOwe` (`pendingStockPayable + totalPendingPartyPayment`)
+- `netPosition` (`totalOwedToYou - totalYouOwe`)
+- `stockAvailablePct` (`round(availableStockCount / totalStockItems * 100, 1)`, or `0` when `totalStockItems` is `0`)
+- `accounts`: list of `{ accountId, bankName, accountName, currentBalance }`
+
+### GET /api/Dashboard/monthly-flow?months=12
+
+Returns zero-filled monthly IST (`YYYY-MM`) buckets for the last `months` (`1`-`60`, default `12`):
+`[{ "month": "2026-09", "bankIn": 0, "bankOut": 0, "cashIn": 0, "cashOut": 0 }]`.
+
+### GET /api/Dashboard/swipes-daily?days=30
+
+Returns zero-filled daily IST (`YYYY-MM-DD`) buckets for the last `days` (`1`-`365`, default `30`):
+`[{ "date": "2026-10-27", "count": 0, "amount": 0, "profit": 0 }]`.
+
+### GET /api/Dashboard/top-parties?limit=5
+
+Returns the top `limit` (`1`-`50`, default `5`) parties owed across card parties (`type: "CardParty"`) and stock suppliers (`type: "Supplier"`), ordered by `pending` descending:
+`[{ "partyName": "", "type": "CardParty", "pending": 0 }]`.
 
 ---
 

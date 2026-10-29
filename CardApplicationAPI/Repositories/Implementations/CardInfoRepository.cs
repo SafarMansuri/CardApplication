@@ -15,10 +15,62 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<CardInfo>> GetAllAsync(PaginationParams pagination)
+        public async Task<PaginatedResult<CardInfo>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            bool? isSettled = null,
+            bool? limitUsed = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
-            var result = await _context.CardInfo.OrderByDescending(x => x.Id).ToPaginatedResultAsync(pagination);
+            var query = _context.CardInfo.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(x =>
+                    x.PartyName.ToLower().Contains(term) ||
+                    x.CardNumber.ToLower().Contains(term) ||
+                    (x.BankName != null && x.BankName.ToLower().Contains(term)) ||
+                    x.CardName.ToLower().Contains(term));
+            }
+
+            if (isSettled.HasValue)
+                query = query.Where(x => x.IsSettled == isSettled.Value);
+
+            if (limitUsed.HasValue)
+                query = query.Where(x => x.limitUsed == limitUsed.Value);
+
+            var asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+            query = ApplySort(query, sortBy, asc);
+
+            var result = await query.ToPaginatedResultAsync(pagination);
             return new PaginatedResult<CardInfo> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
+        }
+
+        private static IQueryable<CardInfoEntity> ApplySort(IQueryable<CardInfoEntity> query, string? sortBy, bool asc)
+        {
+            return (sortBy?.ToLowerInvariant()) switch
+            {
+                "id" => asc ? query.OrderBy(x => x.Id) : query.OrderByDescending(x => x.Id),
+                "date" => asc ? query.OrderBy(x => x.Date).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Date).ThenByDescending(x => x.Id),
+                "partyname" => asc ? query.OrderBy(x => x.PartyName).ThenBy(x => x.Id) : query.OrderByDescending(x => x.PartyName).ThenByDescending(x => x.Id),
+                "cardname" => asc ? query.OrderBy(x => x.CardName).ThenBy(x => x.Id) : query.OrderByDescending(x => x.CardName).ThenByDescending(x => x.Id),
+                "cardnumber" => asc ? query.OrderBy(x => x.CardNumber).ThenBy(x => x.Id) : query.OrderByDescending(x => x.CardNumber).ThenByDescending(x => x.Id),
+                "bankname" => asc ? query.OrderBy(x => x.BankName).ThenBy(x => x.Id) : query.OrderByDescending(x => x.BankName).ThenByDescending(x => x.Id),
+                "deduction" => asc ? query.OrderBy(x => x.Deduction).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Deduction).ThenByDescending(x => x.Id),
+                "profit" => asc ? query.OrderBy(x => x.Profit).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Profit).ThenByDescending(x => x.Id),
+                "pos" => asc ? query.OrderBy(x => x.POS).ThenBy(x => x.Id) : query.OrderByDescending(x => x.POS).ThenByDescending(x => x.Id),
+                "model" => asc ? query.OrderBy(x => x.Model).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Model).ThenByDescending(x => x.Id),
+                "swipeperson" => asc ? query.OrderBy(x => x.SwipePerson).ThenBy(x => x.Id) : query.OrderByDescending(x => x.SwipePerson).ThenByDescending(x => x.Id),
+                "merchant" => asc ? query.OrderBy(x => x.Merchant).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Merchant).ThenByDescending(x => x.Id),
+                "limitused" => asc ? query.OrderBy(x => x.limitUsed).ThenBy(x => x.Id) : query.OrderByDescending(x => x.limitUsed).ThenByDescending(x => x.Id),
+                "issettled" => asc ? query.OrderBy(x => x.IsSettled).ThenBy(x => x.Id) : query.OrderByDescending(x => x.IsSettled).ThenByDescending(x => x.Id),
+                "settledat" => asc ? query.OrderBy(x => x.SettledAt).ThenBy(x => x.Id) : query.OrderByDescending(x => x.SettledAt).ThenByDescending(x => x.Id),
+                "createdat" => asc ? query.OrderBy(x => x.Createdat).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Createdat).ThenByDescending(x => x.Id),
+                "updatedat" => asc ? query.OrderBy(x => x.Updatedat).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Updatedat).ThenByDescending(x => x.Id),
+                _ => asc ? query.OrderBy(x => x.Id) : query.OrderByDescending(x => x.Id)
+            };
         }
 
         public async Task<CardInfo?> GetByIdAsync(int id)

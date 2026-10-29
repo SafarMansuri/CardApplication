@@ -17,7 +17,7 @@ public sealed class HttpContractTests : ApiTestBase
     public static readonly string[] Routes =
     [
         "POST /api/Auth/login", "POST /api/Auth/refresh", "POST /api/Auth/logout", "POST /api/Auth/seed",
-        "GET /api/Users", "GET /api/Users/{id}", "POST /api/Users", "PUT /api/Users/{id}", "DELETE /api/Users/{id}",
+        "GET /api/Users", "GET /api/Users/summary", "GET /api/Users/{id}", "POST /api/Users", "PUT /api/Users/{id}", "DELETE /api/Users/{id}",
         "GET /api/CardInfo", "GET /api/CardInfo/{id}", "POST /api/CardInfo", "PUT /api/CardInfo/{id}", "DELETE /api/CardInfo/{id}",
         "GET /api/PaymentInfo", "PATCH /api/PaymentInfo/{id}/mark-paid",
         "GET /api/StockItem", "GET /api/StockItem/{id}", "GET /api/StockItem/by-party/{partyName}",
@@ -29,11 +29,13 @@ public sealed class HttpContractTests : ApiTestBase
         "GET /api/CashLedger", "GET /api/CashLedger/{id:long}", "GET /api/CashLedger/type/{transactionType}",
         "GET /api/CashLedger/summary/opening", "GET /api/CashLedger/summary/in", "GET /api/CashLedger/summary/out", "GET /api/CashLedger/summary/current",
         "POST /api/CashLedger", "PUT /api/CashLedger/{id:long}", "DELETE /api/CashLedger/{id:long}",
-        "GET /api/BankAccount", "GET /api/BankAccount/{id:int}", "GET /api/BankAccount/summary/total", "GET /api/BankAccount/summary/accounts",
+        "GET /api/BankAccount", "GET /api/BankAccount/{id:int}", "GET /api/BankAccount/summary/total",
+        "GET /api/BankAccount/summary/status", "GET /api/BankAccount/summary/accounts",
         "POST /api/BankAccount", "PUT /api/BankAccount/{id:int}", "DELETE /api/BankAccount/{id:int}",
         "GET /api/BankTransaction", "GET /api/BankTransaction/{id:int}", "GET /api/BankTransaction/account/{accountId:int}",
         "POST /api/BankTransaction", "POST /api/BankTransaction/transfer", "PUT /api/BankTransaction/{id:int}", "DELETE /api/BankTransaction/{id:int}",
-        "GET /api/Dashboard/summary", "GET /WeatherForecast"
+        "GET /api/Dashboard/summary", "GET /api/Dashboard/monthly-flow", "GET /api/Dashboard/swipes-daily", "GET /api/Dashboard/top-parties",
+        "GET /WeatherForecast"
     ];
 
     [Fact]
@@ -59,7 +61,7 @@ public sealed class HttpContractTests : ApiTestBase
     public async Task UserCannotManageUsersOrSettlePayments_ButCanReadBusinessData()
     {
         using var user = await AsRole("User");
-        foreach (var route in Routes.Where(x => x.Contains("/api/Users") || x.Contains("/mark-paid") || x.Contains("/settle") || x.Contains("/reset")))
+        foreach (var route in Routes.Where(x => x.Contains("/api/Users") || x.Contains("/api/Dashboard") || x.Contains("/mark-paid") || x.Contains("/settle") || x.Contains("/reset")))
         {
             var split = route.Split(' ', 2);
             await Send(new HttpMethod(split[0]), split[1].Replace("{id}", "1"), status: HttpStatusCode.Forbidden, client: user);
@@ -67,6 +69,7 @@ public sealed class HttpContractTests : ApiTestBase
         await Send(HttpMethod.Get, "/api/CardInfo", client: user);
         using var master = await AsRole("Master");
         await Send(HttpMethod.Get, "/api/Users", client: master);
+        await Send(HttpMethod.Get, "/api/Dashboard/summary", client: master);
     }
 
     [Fact]

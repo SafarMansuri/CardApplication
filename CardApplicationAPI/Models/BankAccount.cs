@@ -23,4 +23,6 @@ namespace CardApplicationAPI.Models
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
+
+    public sealed record BankAccountStatusSummary(int Total, int Active, int Inactive);
 }

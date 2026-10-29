@@ -6,7 +6,13 @@ namespace CardApplicationAPI.Repositories.Interfaces
     public interface IUserRepository
     {
         // 🔹 Basic CRUD
-        Task<PaginatedResult<Users>> GetAllAsync(PaginationParams pagination);
+        Task<PaginatedResult<Users>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? role = null,
+            string? sortBy = null,
+            string? sortDir = null);
+        Task<UserRoleSummary> GetRoleSummaryAsync();
         Task<Users?> GetByIdAsync(int id);
         Task<Users> CreateAsync(Users model);
         Task<Users> UpdateAsync(Users model);

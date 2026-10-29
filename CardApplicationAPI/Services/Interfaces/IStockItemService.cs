@@ -5,7 +5,13 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface IStockItemService
     {
-        Task<InternalActionResult<PaginatedResult<StockItem>>> GetAllAsync(PaginationParams pagination);
+        Task<InternalActionResult<PaginatedResult<StockItem>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? status = null,
+            string? inOut = null,
+            string? sortBy = null,
+            string? sortDir = null);
         Task<InternalActionResult<StockItem?>> GetByIdAsync(int id);
         Task<InternalActionResult<StockItem>> AddAsync(StockItem model);
         Task<InternalActionResult<bool>> UpdateAsync(StockItem model);

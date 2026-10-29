@@ -30,10 +30,62 @@ namespace CardApplicationAPI.Repositories.Implementations
             return _passwordHasher.HashPassword(password);
         }
 
-        public async Task<PaginatedResult<Users>> GetAllAsync(PaginationParams pagination)
+        public async Task<PaginatedResult<Users>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? role = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
-            var result = await _context.Users.OrderBy(x => x.Id).ToPaginatedResultAsync(pagination);
+            var query = _context.Users.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(x =>
+                    x.Username.ToLower().Contains(term) ||
+                    (x.FullName != null && x.FullName.ToLower().Contains(term)) ||
+                    (x.NickName != null && x.NickName.ToLower().Contains(term)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(role))
+                query = query.Where(x => x.Role == role);
+
+            var asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+            query = (sortBy?.ToLowerInvariant()) switch
+            {
+                "id" => asc ? query.OrderBy(x => x.Id) : query.OrderByDescending(x => x.Id),
+                "username" => asc ? query.OrderBy(x => x.Username).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Username).ThenByDescending(x => x.Id),
+                "fullname" => asc ? query.OrderBy(x => x.FullName).ThenBy(x => x.Id) : query.OrderByDescending(x => x.FullName).ThenByDescending(x => x.Id),
+                "nickname" => asc ? query.OrderBy(x => x.NickName).ThenBy(x => x.Id) : query.OrderByDescending(x => x.NickName).ThenByDescending(x => x.Id),
+                "phonenumber" => asc ? query.OrderBy(x => x.PhoneNumber).ThenBy(x => x.Id) : query.OrderByDescending(x => x.PhoneNumber).ThenByDescending(x => x.Id),
+                "role" => asc ? query.OrderBy(x => x.Role).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Role).ThenByDescending(x => x.Id),
+                "createdat" => asc ? query.OrderBy(x => x.Createdat).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Createdat).ThenByDescending(x => x.Id),
+                "updatedat" => asc ? query.OrderBy(x => x.Updatedat).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Updatedat).ThenByDescending(x => x.Id),
+                _ => sortDir == "desc" ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
+            };
+
+            var result = await query.ToPaginatedResultAsync(pagination);
             return new PaginatedResult<Users> { Items = result.Items.Select(MapToModel), Pagination = result.Pagination };
+        }
+
+        public async Task<UserRoleSummary> GetRoleSummaryAsync()
+        {
+            var counts = await _context.Users
+                .AsNoTracking()
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Total = g.Count(),
+                    Masters = g.Count(x => x.Role == "Master"),
+                    Admins = g.Count(x => x.Role == "Admin"),
+                    Users = g.Count(x => x.Role == "User")
+                })
+                .FirstOrDefaultAsync();
+
+            return counts == null
+                ? new UserRoleSummary(0, 0, 0, 0)
+                : new UserRoleSummary(counts.Total, counts.Masters, counts.Admins, counts.Users);
         }
 
         public async Task<Users?> GetByIdAsync(int id)

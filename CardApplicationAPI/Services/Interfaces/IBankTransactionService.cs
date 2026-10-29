@@ -5,9 +5,20 @@ namespace CardApplicationAPI.Services.Interfaces
 {
     public interface IBankTransactionService
     {
-        Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetAllAsync(PaginationParams pagination);
+        Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? transactionType = null,
+            string? sortBy = null,
+            string? sortDir = null);
         Task<InternalActionResult<BankTransaction?>> GetByIdAsync(int id);
-        Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetByAccountIdAsync(int accountId, PaginationParams pagination);
+        Task<InternalActionResult<PaginatedResult<BankTransaction>>> GetByAccountIdAsync(
+            int accountId,
+            PaginationParams pagination,
+            string? search = null,
+            string? transactionType = null,
+            string? sortBy = null,
+            string? sortDir = null);
         Task<InternalActionResult<BankTransaction>> AddAsync(BankTransaction model);
         Task<InternalActionResult<BankTransferResult>> TransferAsync(BankTransferRequest request);
         Task<InternalActionResult<bool>> UpdateAsync(BankTransaction model);

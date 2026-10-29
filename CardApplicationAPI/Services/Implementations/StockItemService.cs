@@ -14,8 +14,50 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<StockItem>>> GetAllAsync(PaginationParams pagination) =>
-            FactoryResponse<PaginatedResult<StockItem>>.CreateSuccess(await _repository.GetAllAsync(pagination), "Stock items retrieved successfully.");
+        private static readonly HashSet<string> AllowedSortFields = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "id", "no", "inDate", "outDate", "imei", "colour", "model", "gstMrp", "amount",
+            "partyName", "payment", "inOut", "status", "soldTo", "remarks", "paymentStatus",
+            "createdAt", "updatedAt"
+        };
+
+        public async Task<InternalActionResult<PaginatedResult<StockItem>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            string? status = null,
+            string? inOut = null,
+            string? sortBy = null,
+            string? sortDir = null)
+        {
+            string? normalizedStatus = null;
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var trimmed = status.Trim();
+                normalizedStatus = char.ToUpperInvariant(trimmed[0]) + trimmed[1..].ToLowerInvariant();
+                if (normalizedStatus is not ("Available" or "Sold" or "Returned"))
+                    return FactoryResponse<PaginatedResult<StockItem>>.CreateFail("Status must be Available, Sold, or Returned.", ApplicationActionStatusCodes.ValidationFailed);
+            }
+
+            string? normalizedInOut = null;
+            if (!string.IsNullOrWhiteSpace(inOut))
+            {
+                normalizedInOut = inOut.Trim().ToUpperInvariant();
+                if (normalizedInOut is not ("IN" or "OUT"))
+                    return FactoryResponse<PaginatedResult<StockItem>>.CreateFail("InOut must be IN or OUT.", ApplicationActionStatusCodes.ValidationFailed);
+            }
+
+            sortBy = string.IsNullOrWhiteSpace(sortBy) ? null : sortBy.Trim();
+            if (sortBy != null && !AllowedSortFields.Contains(sortBy))
+                return FactoryResponse<PaginatedResult<StockItem>>.CreateFail("Invalid sortBy field.", ApplicationActionStatusCodes.ValidationFailed);
+
+            sortDir = string.IsNullOrWhiteSpace(sortDir) ? null : sortDir.Trim().ToLowerInvariant();
+            if (sortDir != null && sortDir != "asc" && sortDir != "desc")
+                return FactoryResponse<PaginatedResult<StockItem>>.CreateFail("SortDir must be asc or desc.", ApplicationActionStatusCodes.ValidationFailed);
+
+            return FactoryResponse<PaginatedResult<StockItem>>.CreateSuccess(
+                await _repository.GetAllAsync(pagination, search, normalizedStatus, normalizedInOut, sortBy, sortDir),
+                "Stock items retrieved successfully.");
+        }
 
         public async Task<InternalActionResult<StockItem?>> GetByIdAsync(int id)
         {

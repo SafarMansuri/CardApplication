@@ -17,15 +17,21 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<BankTransaction>> GetAllAsync(PaginationParams pagination)
+        public async Task<PaginatedResult<BankTransaction>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            IReadOnlyCollection<string>? transactionTypes = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
-            var page = await _context.BankTransactions
+            var query = _context.BankTransactions
                 .AsNoTracking()
                 .Include(x => x.Account)
                 .Include(x => x.RelatedAccount)
-                .OrderByDescending(x => x.TransactionDate)
-                .ThenByDescending(x => x.Id)
-                .ToPaginatedResultAsync(pagination);
+                .AsQueryable();
+
+            query = ApplyFiltersAndSort(query, search, transactionTypes, sortBy, sortDir);
+            var page = await query.ToPaginatedResultAsync(pagination);
 
             return new PaginatedResult<BankTransaction>
             {
@@ -44,21 +50,75 @@ namespace CardApplicationAPI.Repositories.Implementations
             return entity == null ? null : MapToModel(entity);
         }
 
-        public async Task<PaginatedResult<BankTransaction>> GetByAccountIdAsync(int accountId, PaginationParams pagination)
+        public async Task<PaginatedResult<BankTransaction>> GetByAccountIdAsync(
+            int accountId,
+            PaginationParams pagination,
+            string? search = null,
+            IReadOnlyCollection<string>? transactionTypes = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
-            var page = await _context.BankTransactions
+            var query = _context.BankTransactions
                 .AsNoTracking()
                 .Include(x => x.Account)
                 .Include(x => x.RelatedAccount)
-                .Where(x => x.AccountId == accountId)
-                .OrderByDescending(x => x.TransactionDate)
-                .ThenByDescending(x => x.Id)
-                .ToPaginatedResultAsync(pagination);
+                .Where(x => x.AccountId == accountId);
+
+            query = ApplyFiltersAndSort(query, search, transactionTypes, sortBy, sortDir);
+            var page = await query.ToPaginatedResultAsync(pagination);
 
             return new PaginatedResult<BankTransaction>
             {
                 Items = page.Items.Select(MapToModel),
                 Pagination = page.Pagination
+            };
+        }
+
+        private static IQueryable<BankTransactionEntity> ApplyFiltersAndSort(
+            IQueryable<BankTransactionEntity> query,
+            string? search,
+            IReadOnlyCollection<string>? transactionTypes,
+            string? sortBy,
+            string? sortDir)
+        {
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(x =>
+                    (x.Remarks != null && x.Remarks.ToLower().Contains(term)) ||
+                    (x.ReferenceNo != null && x.ReferenceNo.ToLower().Contains(term)) ||
+                    (x.Account != null && (x.Account.BankName.ToLower().Contains(term) || x.Account.AccountName.ToLower().Contains(term))) ||
+                    (x.RelatedAccount != null && (x.RelatedAccount.BankName.ToLower().Contains(term) || x.RelatedAccount.AccountName.ToLower().Contains(term))));
+            }
+
+            if (transactionTypes != null && transactionTypes.Count > 0)
+            {
+                var typeArray = transactionTypes.ToArray();
+                query = query.Where(x => typeArray.Contains(x.TransactionType));
+            }
+
+            var asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+            return (sortBy?.ToLowerInvariant()) switch
+            {
+                "id" => asc ? query.OrderBy(x => x.Id) : query.OrderByDescending(x => x.Id),
+                "accountid" => asc ? query.OrderBy(x => x.AccountId).ThenBy(x => x.Id) : query.OrderByDescending(x => x.AccountId).ThenByDescending(x => x.Id),
+                "relatedaccountid" => asc ? query.OrderBy(x => x.RelatedAccountId).ThenBy(x => x.Id) : query.OrderByDescending(x => x.RelatedAccountId).ThenByDescending(x => x.Id),
+                "transactiondate" => asc ? query.OrderBy(x => x.TransactionDate).ThenBy(x => x.Id) : query.OrderByDescending(x => x.TransactionDate).ThenByDescending(x => x.Id),
+                "transactiontype" => asc ? query.OrderBy(x => x.TransactionType).ThenBy(x => x.Id) : query.OrderByDescending(x => x.TransactionType).ThenByDescending(x => x.Id),
+                "amount" => asc ? query.OrderBy(x => x.Amount).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Amount).ThenByDescending(x => x.Id),
+                "referenceno" => asc ? query.OrderBy(x => x.ReferenceNo).ThenBy(x => x.Id) : query.OrderByDescending(x => x.ReferenceNo).ThenByDescending(x => x.Id),
+                "remarks" => asc ? query.OrderBy(x => x.Remarks).ThenBy(x => x.Id) : query.OrderByDescending(x => x.Remarks).ThenByDescending(x => x.Id),
+                "createdat" => asc ? query.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id) : query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id),
+                "updatedat" => asc ? query.OrderBy(x => x.UpdatedAt).ThenBy(x => x.Id) : query.OrderByDescending(x => x.UpdatedAt).ThenByDescending(x => x.Id),
+                "accountname" => asc
+                    ? query.OrderBy(x => x.Account != null ? x.Account.AccountName : null).ThenBy(x => x.Id)
+                    : query.OrderByDescending(x => x.Account != null ? x.Account.AccountName : null).ThenByDescending(x => x.Id),
+                "bankname" => asc
+                    ? query.OrderBy(x => x.Account != null ? x.Account.BankName : null).ThenBy(x => x.Id)
+                    : query.OrderByDescending(x => x.Account != null ? x.Account.BankName : null).ThenByDescending(x => x.Id),
+                _ => asc
+                    ? query.OrderBy(x => x.TransactionDate).ThenBy(x => x.Id)
+                    : query.OrderByDescending(x => x.TransactionDate).ThenByDescending(x => x.Id)
             };
         }
 

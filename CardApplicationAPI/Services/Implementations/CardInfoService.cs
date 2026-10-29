@@ -14,10 +14,40 @@ namespace CardApplicationAPI.Services.Implementations
             _repository = repository;
         }
 
-        public async Task<InternalActionResult<PaginatedResult<CardInfo>>> GetAllAsync(PaginationParams pagination)
+        private static readonly HashSet<string> AllowedSortFields = new(StringComparer.OrdinalIgnoreCase)
         {
-            var result = await _repository.GetAllAsync(pagination);
+            "id", "date", "partyName", "cardName", "cardNumber", "bankName", "deduction",
+            "profit", "pos", "model", "swipePerson", "merchant", "limitUsed",
+            "isSettled", "settledAt", "createdat", "updatedat"
+        };
+
+        public async Task<InternalActionResult<PaginatedResult<CardInfo>>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            bool? isSettled = null,
+            bool? limitUsed = null,
+            string? sortBy = null,
+            string? sortDir = null)
+        {
+            var sortValidation = ValidateSort(ref sortBy, ref sortDir);
+            if (sortValidation != null)
+                return FactoryResponse<PaginatedResult<CardInfo>>.CreateFail(sortValidation, ApplicationActionStatusCodes.ValidationFailed);
+
+            var result = await _repository.GetAllAsync(pagination, search, isSettled, limitUsed, sortBy, sortDir);
             return FactoryResponse<PaginatedResult<CardInfo>>.CreateSuccess(result, "Card info retrieved successfully.");
+        }
+
+        private static string? ValidateSort(ref string? sortBy, ref string? sortDir)
+        {
+            sortBy = string.IsNullOrWhiteSpace(sortBy) ? null : sortBy.Trim();
+            if (sortBy != null && !AllowedSortFields.Contains(sortBy))
+                return "Invalid sortBy field.";
+
+            sortDir = string.IsNullOrWhiteSpace(sortDir) ? null : sortDir.Trim().ToLowerInvariant();
+            if (sortDir != null && sortDir != "asc" && sortDir != "desc")
+                return "SortDir must be asc or desc.";
+
+            return null;
         }
 
         public async Task<InternalActionResult<CardInfo?>> GetByIdAsync(int id)

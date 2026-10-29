@@ -16,13 +16,45 @@ namespace CardApplicationAPI.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<PaginatedResult<BankAccount>> GetAllAsync(PaginationParams pagination)
+        public async Task<PaginatedResult<BankAccount>> GetAllAsync(
+            PaginationParams pagination,
+            string? search = null,
+            bool? isActive = null,
+            string? sortBy = null,
+            string? sortDir = null)
         {
-            var page = await _context.BankAccounts
-                .AsNoTracking()
-                .OrderBy(x => x.AccountName)
-                .ThenBy(x => x.Id)
-                .ToPaginatedResultAsync(pagination);
+            var query = _context.BankAccounts.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(x =>
+                    x.BankName.ToLower().Contains(term) ||
+                    x.AccountName.ToLower().Contains(term) ||
+                    (x.AccountNo != null && x.AccountNo.ToLower().Contains(term)));
+            }
+
+            if (isActive.HasValue)
+                query = query.Where(x => x.IsActive == isActive.Value);
+
+            var asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+            query = (sortBy?.ToLowerInvariant()) switch
+            {
+                "id" => asc ? query.OrderBy(x => x.Id) : query.OrderByDescending(x => x.Id),
+                "accountname" => asc ? query.OrderBy(x => x.AccountName).ThenBy(x => x.Id) : query.OrderByDescending(x => x.AccountName).ThenByDescending(x => x.Id),
+                "bankname" => asc ? query.OrderBy(x => x.BankName).ThenBy(x => x.Id) : query.OrderByDescending(x => x.BankName).ThenByDescending(x => x.Id),
+                "accountno" => asc ? query.OrderBy(x => x.AccountNo).ThenBy(x => x.Id) : query.OrderByDescending(x => x.AccountNo).ThenByDescending(x => x.Id),
+                "isactive" => asc ? query.OrderBy(x => x.IsActive).ThenBy(x => x.Id) : query.OrderByDescending(x => x.IsActive).ThenByDescending(x => x.Id),
+                "createdat" => asc ? query.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id) : query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id),
+                "updatedat" => asc ? query.OrderBy(x => x.UpdatedAt).ThenBy(x => x.Id) : query.OrderByDescending(x => x.UpdatedAt).ThenByDescending(x => x.Id),
+                _ => sortDir == "asc"
+                    ? query.OrderBy(x => x.Id)
+                    : sortDir == "desc"
+                        ? query.OrderByDescending(x => x.Id)
+                        : query.OrderBy(x => x.AccountName).ThenBy(x => x.Id)
+            };
+
+            var page = await query.ToPaginatedResultAsync(pagination);
 
             return new PaginatedResult<BankAccount>
             {
@@ -151,6 +183,24 @@ namespace CardApplicationAPI.Repositories.Implementations
                 Items = summaries,
                 Pagination = accountPage.Pagination
             };
+        }
+
+        public async Task<BankAccountStatusSummary> GetStatusSummaryAsync()
+        {
+            var counts = await _context.BankAccounts
+                .AsNoTracking()
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Total = g.Count(),
+                    Active = g.Count(x => x.IsActive),
+                    Inactive = g.Count(x => !x.IsActive)
+                })
+                .FirstOrDefaultAsync();
+
+            return counts == null
+                ? new BankAccountStatusSummary(0, 0, 0)
+                : new BankAccountStatusSummary(counts.Total, counts.Active, counts.Inactive);
         }
 
         private static BankAccount MapToModel(BankAccountEntity entity)
